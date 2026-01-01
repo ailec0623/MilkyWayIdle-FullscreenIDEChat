@@ -280,85 +280,85 @@
 
     /* ===== IDE message layout ===== */
     #mw-ide-body{
-    font-variant-numeric: tabular-nums; /* 时间对齐更像 IDE */
+      font-variant-numeric: tabular-nums; /* 时间对齐更像 IDE */
     }
 
     .mw-ide-line{
-    display: grid;
-    grid-template-columns: minmax(0, 18ch) 100px 1fr; /* 时间 | 名字 | 内容 */
-    column-gap: 1px;
-    align-items: start;
+      display: grid;
+      grid-template-columns: minmax(0, 18ch) 100px 1fr; /* 时间 | 名字 | 内容 */
+      column-gap: 1px;
+      align-items: start;
     }
 
     .mw-ide-ts{
-    white-space: nowrap;
+      white-space: nowrap;
     }
 
     .mw-ide-name{
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    opacity: .92;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      opacity: .92;
     }
 
     .mw-ide-msg{
-    white-space: pre-wrap;
-    word-break: break-word;
+      white-space: pre-wrap;
+      word-break: break-word;
     }
 
     /* 系统消息：名字列空出来更清爽 */
     .mw-ide-line.mw-ide-sys{
-    grid-template-columns: 76px 1fr;
+      grid-template-columns: 76px 1fr;
     }
 
     /* @mention highlight */
     .mw-mention{
-    padding: 0 4px;
-    border-radius: 6px;
-    background: rgba(120,200,255,.16);
-    border: 1px solid rgba(120,200,255,.22);
-    color: #d7eaff;
+      padding: 0 4px;
+      border-radius: 6px;
+      background: rgba(120,200,255,.16);
+      border: 1px solid rgba(120,200,255,.22);
+      color: #d7eaff;
     }
 
     /* ===== Pause + new messages bar ===== */
     #mw-ide-status{
-    position: absolute;
-    top: 10px;
-    right: 12px;
-    z-index: 2;
-    font-size: 11px;
-    opacity: .8;
-    display: none;
-    padding: 4px 8px;
-    border-radius: 999px;
-    border: 1px solid rgba(255,255,255,.14);
-    background: rgba(11,14,20,.75);
-}
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      z-index: 2;
+      font-size: 11px;
+      opacity: .8;
+      display: none;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(11,14,20,.75);
+    }
 
-#mw-ide-newbar{
-  position: absolute;
-  bottom: 130px; /* 让它浮在输入框上方：你输入时不挡 */
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 3;
+    #mw-ide-newbar{
+      position: absolute;
+      bottom: 130px; /* 让它浮在输入框上方：你输入时不挡 */
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 3;
 
-  display: none;
-  align-items: center;
-  gap: 10px;
+      display: none;
+      align-items: center;
+      gap: 10px;
 
-  padding: 8px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(120,200,255,.30);
-  background: rgba(11,14,20,.86);
-  cursor: pointer;
-  user-select: none;
-  font-size: 12px;
-}
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(120,200,255,.30);
+      background: rgba(11,14,20,.86);
+      cursor: pointer;
+      user-select: none;
+      font-size: 12px;
+    }
 
-#mw-ide-newbar:hover{
-  border-color: rgba(120,200,255,.55);
-  background: rgba(11,14,20,.92);
-}
+    #mw-ide-newbar:hover{
+      border-color: rgba(120,200,255,.55);
+      background: rgba(11,14,20,.92);
+    }
 
   `);
 
@@ -475,38 +475,6 @@
 
   function isNearBottom(el, thresholdPx = 80) {
     return (el.scrollHeight - el.scrollTop - el.clientHeight) <= thresholdPx;
-  }
-
-  function isNearBottom(el, thresholdPx = 80) {
-    return (el.scrollHeight - el.scrollTop - el.clientHeight) <= thresholdPx;
-  }
-
-  function setPaused(paused) {
-    state.isPaused = paused;
-    const s = document.getElementById('mw-ide-status');
-    if (s) s.style.display = paused ? 'block' : 'none';
-  }
-
-  function showNewBar(show, count = 0) {
-    const bar = document.getElementById('mw-ide-newbar');
-    const text = document.getElementById('mw-ide-newbar-text');
-    if (!bar || !text) return;
-
-    if (!show) {
-      bar.style.display = 'none';
-      return;
-    }
-    text.textContent = count > 0 ? `New messages (${count}) • click to jump` : `New messages • click to jump`;
-    bar.style.display = 'flex';
-  }
-
-  function jumpToBottomAndResume() {
-    const body = document.getElementById(CFG.bodyId);
-    if (!body) return;
-    body.scrollTop = body.scrollHeight;
-    state.activeNewWhilePaused = 0;
-    showNewBar(false);
-    setPaused(false);
   }
 
   function setPaused(paused) {

@@ -938,7 +938,7 @@
     if (m.isSystem || !m.name) {
       return `<div class="mw-ide-line"><span class="mw-ide-ts">${esc(m.ts)}</span><span class="mw-ide-name">System</span><span class="mw-ide-msg">${highlightMentions(esc(m.text))}</span></div>`;
     }
-
+    console.log("TEST| " + m.text);
     return `<div class="mw-ide-line"><span class="mw-ide-ts">${esc(m.ts)}</span><span class="mw-ide-name">${esc(m.name)}</span><span class="mw-ide-msg">${highlightMentions(esc(m.text))}</span></div>`;
 
   }

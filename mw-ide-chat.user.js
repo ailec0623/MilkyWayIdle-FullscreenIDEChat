@@ -2,9 +2,9 @@
 // @name         MilkyWayIdle - Fullscreen IDE Chat
 // @name:zh-CN   MilkyWayIdle - 全屏 IDE 聊天
 // @namespace    https://github.com/ailec0623/MilkyWayIdle-FullscreenIDEChat
-// @version      0.15.0
-// @description  Fullscreen IDE-style chat for MilkyWayIdle: channel tree, aligned log view, unread tracking, pause-follow mode, local input (no draft loss), adjustable font size, drag-to-reorder channels, improved message layout, click username to mention, double-click message to copy, cross-platform hotkeys, configurable game link highlighting, configurable auto image display.
-// @description:zh-CN  为 MilkyWayIdle 提供全屏 IDE 风格聊天界面：频道列表、日志对齐、未读提示、暂停跟随、本地输入（不丢草稿）、可调节字体大小、拖拽排序频道、改进消息布局、点击用户名快速@、双击消息复制、跨平台快捷键、可配置游戏链接高亮、可配置自动图片显示。
+// @version      0.16.1
+// @description  Fullscreen IDE-style chat for MilkyWayIdle: channel tree, aligned log view, unread tracking, pause-follow mode, local input (no draft loss), adjustable font size, drag-to-reorder channels, improved message layout, click username to mention, double-click message to copy, cross-platform hotkeys, configurable game link highlighting, configurable auto image display, paste image upload to tupian.li.
+// @description:zh-CN  为 MilkyWayIdle 提供全屏 IDE 风格聊天界面：频道列表、日志对齐、未读提示、暂停跟随、本地输入（不丢草稿）、可调节字体大小、拖拽排序频道、改进消息布局、点击用户名快速@、双击消息复制、跨平台快捷键、可配置游戏链接高亮、可配置自动图片显示、粘贴图片上传到图床。
 // @author       400BadRequest
 // @copyright    2025, 400BadRequest
 // @license      MIT
@@ -22,6 +22,7 @@
 // @run-at       document-idle
 //
 // @grant        GM_addStyle
+// @grant        GM_xmlhttpRequest
 // ==/UserScript==
 
 
@@ -339,10 +340,17 @@
 
       font-size: var(--mw-ide-font-size);
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "JetBrains Mono", monospace;
+      
+      transition: opacity 0.3s ease, background-color 0.3s ease;
     }
     #${CFG.localInputId}:focus{
       border-color: rgba(120,200,255,.55);
       box-shadow: 0 0 0 1px rgba(120,200,255,.25);
+    }
+    #${CFG.localInputId}:disabled{
+      background: rgba(15,17,26,.7);
+      color: rgba(215,220,232,.6);
+      cursor: not-allowed;
     }
 
     /* Small IDE-ish send button (no blue) */
@@ -361,6 +369,8 @@
       justify-content:center;
       cursor: pointer;
       user-select: none;
+      
+      transition: opacity 0.3s ease, background-color 0.3s ease;
     }
     #${CFG.sendBtnId}:hover{
       background: rgba(255,255,255,.12);
@@ -369,6 +379,16 @@
     #${CFG.sendBtnId}:active{
       background: rgba(120,200,255,.18);
       border-color: rgba(120,200,255,.45);
+    }
+    #${CFG.sendBtnId}:disabled{
+      background: rgba(255,255,255,.03);
+      border-color: rgba(255,255,255,.08);
+      color: rgba(207,214,230,.4);
+      cursor: not-allowed;
+    }
+    #${CFG.sendBtnId}:disabled:hover{
+      background: rgba(255,255,255,.03);
+      border-color: rgba(255,255,255,.08);
     }
 
     /* ===== IDE message layout ===== */
@@ -599,6 +619,24 @@
     }
     .user-mention-option .icon {
       opacity: .7;
+    }
+
+    /* Upload status styles */
+    .upload-status {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 10px 15px;
+      background: #4caf50;
+      color: #fff;
+      border-radius: 4px;
+      z-index: 10000;
+      box-shadow: 0 2px 10px rgba(0,0,0,.2);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "JetBrains Mono", monospace;
+      font-size: 12px;
+    }
+    .upload-status.error {
+      background: #f44336;
     }
 
   `);
@@ -1818,6 +1856,116 @@
     inputEl.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
+  function uploadAndInsertImage(blob, inputElement) {
+    // 保存原始状态
+    const originalPlaceholder = inputElement.placeholder;
+    const originalDisabled = inputElement.disabled;
+    const sendBtn = DOM.sendBtn;
+    const originalSendDisabled = sendBtn ? sendBtn.disabled : false;
+    
+    // 设置上传状态
+    inputElement.placeholder = 'Uploading image...';
+    inputElement.disabled = true;
+    inputElement.style.opacity = '0.6';
+    inputElement.style.cursor = 'not-allowed';
+    
+    // 禁用发送按钮
+    if (sendBtn) {
+      sendBtn.disabled = true;
+      sendBtn.style.opacity = '0.6';
+      sendBtn.style.cursor = 'not-allowed';
+    }
+
+    const statusDiv = document.createElement('div');
+    statusDiv.className = 'upload-status';
+    statusDiv.textContent = '正在上传图片...';
+    document.body.appendChild(statusDiv);
+
+    const boundary = '----WebKitFormBoundary' + Math.random().toString(36).substring(2);
+    const formParts = [];
+
+    function appendFile(name, file) {
+      formParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="${name}"; filename="${file.name}"\r\nContent-Type: ${file.type}\r\n\r\n`);
+      formParts.push(file);
+      formParts.push('\r\n');
+    }
+    appendFile('file', blob);
+    formParts.push(`--${boundary}--\r\n`);
+    const bodyBlob = new Blob(formParts);
+
+    function restoreInputState() {
+      // 恢复输入框状态
+      inputElement.placeholder = originalPlaceholder;
+      inputElement.disabled = originalDisabled;
+      inputElement.style.opacity = '';
+      inputElement.style.cursor = '';
+      
+      // 恢复发送按钮状态
+      if (sendBtn) {
+        sendBtn.disabled = originalSendDisabled;
+        sendBtn.style.opacity = '';
+        sendBtn.style.cursor = '';
+      }
+    }
+
+    GM_xmlhttpRequest({
+      method: 'POST',
+      url: 'https://tupian.li/api/v1/upload',
+      data: bodyBlob,
+      headers: {
+        'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        'Accept': 'application/json'
+      },
+      binary: true,
+      onload: function(response) {
+        statusDiv.remove();
+        restoreInputState();
+        
+        if (response.status === 200) {
+          try {
+            const result = JSON.parse(response.responseText);
+            if (result.status) {
+              const url = result.data.links.url;
+
+              const currentValue = inputElement.value;
+              const newValue = currentValue ? `${currentValue} ${url}` : url;
+
+              inputElement.value = newValue;
+              inputElement.dispatchEvent(new Event('input', { bubbles: true }));
+              inputElement.focus();
+
+              const successDiv = document.createElement('div');
+              successDiv.className = 'upload-status';
+              successDiv.textContent = '上传成功！';
+              document.body.appendChild(successDiv);
+              setTimeout(() => successDiv.remove(), 2000);
+            } else {
+              throw new Error(result.message || '上传失败');
+            }
+          } catch (e) {
+            showUploadError('解析失败: ' + e.message);
+          }
+        } else {
+          showUploadError('服务器错误: ' + response.status);
+        }
+      },
+      onerror: function(error) {
+        statusDiv.remove();
+        restoreInputState();
+        showUploadError('上传失败: ' + error.statusText);
+      }
+    });
+
+    function showUploadError(message) {
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'upload-status error';
+      errorDiv.textContent = message;
+      document.body.appendChild(errorDiv);
+      setTimeout(() => errorDiv.remove(), 3000);
+      console.error(message);
+    }
+  }
+
   function doSend() {
     const local = $('#' + CFG.localInputId);
     if (!local) return;
@@ -1957,6 +2105,21 @@
       if (e.key === 'Enter') {
         e.preventDefault();   // 阻止 textarea 插入换行
         doSend();
+      }
+    });
+
+    // 添加粘贴图片功能
+    $('#' + CFG.localInputId).addEventListener('paste', async (e) => {
+      const items = e.clipboardData.items;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          e.preventDefault();
+          const blob = items[i].getAsFile();
+          if (blob) {
+            await uploadAndInsertImage(blob, e.target);
+          }
+          break;
+        }
       }
     });
   }
@@ -2135,7 +2298,7 @@
       if (state.enabled) renderSidebar();
     }).observe(chatPanel, { subtree: true, childList: true, attributes: true });
 
-    console.log('[MW IDE Chat] v0.15.0 loaded (added configurable image and game link display options)');
+    console.log('[MW IDE Chat] v0.16.1 loaded (improved image upload UX with input locking)');
   }
 
   main();

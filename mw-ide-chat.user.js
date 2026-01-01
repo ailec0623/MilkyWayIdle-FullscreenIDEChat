@@ -2,9 +2,9 @@
 // @name         MilkyWayIdle - Fullscreen IDE Chat
 // @name:zh-CN   MilkyWayIdle - 全屏 IDE 聊天
 // @namespace    https://github.com/ailec0623/MilkyWayIdle-FullscreenIDEChat
-// @version      0.14.14
-// @description  Fullscreen IDE-style chat for MilkyWayIdle: channel tree, aligned log view, unread tracking, pause-follow mode, local input (no draft loss), adjustable font size, drag-to-reorder channels, improved message layout, click username to mention, double-click message to copy, cross-platform hotkeys, game link highlighting.
-// @description:zh-CN  为 MilkyWayIdle 提供全屏 IDE 风格聊天界面：频道列表、日志对齐、未读提示、暂停跟随、本地输入（不丢草稿）、可调节字体大小、拖拽排序频道、改进消息布局、点击用户名快速@、双击消息复制、跨平台快捷键、游戏链接高亮。
+// @version      0.14.20
+// @description  Fullscreen IDE-style chat for MilkyWayIdle: channel tree, aligned log view, unread tracking, pause-follow mode, local input (no draft loss), adjustable font size, drag-to-reorder channels, improved message layout, click username to mention, double-click message to copy, cross-platform hotkeys, game link highlighting, auto image display.
+// @description:zh-CN  为 MilkyWayIdle 提供全屏 IDE 风格聊天界面：频道列表、日志对齐、未读提示、暂停跟随、本地输入（不丢草稿）、可调节字体大小、拖拽排序频道、改进消息布局、点击用户名快速@、双击消息复制、跨平台快捷键、游戏链接高亮、自动图片显示。
 // @author       400BadRequest
 // @copyright    2025, 400BadRequest
 // @license      MIT
@@ -492,6 +492,44 @@
       vertical-align: middle;
     }
 
+    /* Embedded image styles */
+    .mw-image-container {
+      display: block;
+      margin: 8px 0;
+      max-width: 100%;
+    }
+    
+    .mw-image-link {
+      display: inline-block;
+      text-decoration: none;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,.2);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      max-width: 100%;
+    }
+    
+    .mw-image-link:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0,0,0,.3);
+    }
+    
+    .mw-embedded-image {
+      max-width: 400px;
+      max-height: 300px;
+      width: auto;
+      height: auto;
+      display: block;
+      border-radius: 8px;
+      object-fit: contain;
+    }
+    
+    .mw-image-fallback {
+      color: #60a5fa;
+      text-decoration: underline;
+      font-size: calc(var(--mw-ide-font-size) * 0.9);
+    }
+
     /* ===== Pause + new messages bar ===== */
     #mw-ide-status{
       position: absolute;
@@ -691,7 +729,6 @@
   function startSelfIdWatcher() {
     // 初次读取
     const v = readSelfIdFromPage();
-    console.log('[MW IDE Chat] readSelfIdFromPage() =>', v);
     if (v) state.selfId = v;
 
     // 只观察 Header 区域即可（更轻，不会被聊天刷屏影响）
@@ -726,6 +763,56 @@
     obs.observe(header, { subtree: true, childList: true, attributes: true });
   }
 
+
+  function processImageLinks(htmlContent) {
+    if (!htmlContent || typeof htmlContent !== 'string') {
+      return htmlContent;
+    }
+    
+    // Handle existing <a> tags with tupian.li image links (including truncated display text)
+    // Only match actual image paths, not the main domain
+    // This regex captures the href attribute and ensures there's a path after tupian.li/
+    const linkRegex = /<a\s+[^>]*href=["'](https?:\/\/tupian\.li\/\w+[^"']*?)["'][^>]*>([^<]*?)<\/a>/gi;
+    
+    let processedContent = htmlContent.replace(linkRegex, (match, fullUrl, displayText) => {
+      // Skip if it's just the main domain (https://tupian.li/ or https://tupian.li)
+      if (fullUrl.match(/^https?:\/\/tupian\.li\/?$/)) {
+        return match; // Return original link unchanged
+      }
+      
+      // Create image element with the full URL from href attribute
+      // The displayText might be truncated with "..." but we use the full URL from href
+      return `<div class="mw-image-container">
+        <a href="${fullUrl}" target="_blank" rel="noreferrer noopener nofollow" class="mw-image-link">
+          <img src="${fullUrl}" alt="Image" class="mw-embedded-image" loading="lazy" 
+               onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';" />
+          <span class="mw-image-fallback" style="display:none;">${displayText}</span>
+        </a>
+      </div>`;
+    });
+    
+    // Also handle plain text tupian.li image links (fallback for cases without <a> tags)
+    if (processedContent === htmlContent) {
+      // Only match URLs with actual paths, not just the main domain
+      const plainLinkRegex = /(https?:\/\/tupian\.li\/\w+[^\s<>"']*)/gi;
+      processedContent = processedContent.replace(plainLinkRegex, (match, url) => {
+        // Skip if it's just the main domain
+        if (url.match(/^https?:\/\/tupian\.li\/?$/)) {
+          return match; // Return original text unchanged
+        }
+        
+        return `<div class="mw-image-container">
+          <a href="${url}" target="_blank" rel="noreferrer noopener nofollow" class="mw-image-link">
+            <img src="${url}" alt="Image" class="mw-embedded-image" loading="lazy" 
+                 onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';" />
+            <span class="mw-image-fallback" style="display:none;">${url}</span>
+          </a>
+        </div>`;
+      });
+    }
+    
+    return processedContent;
+  }
 
   function highlightMentions(safeHtmlText) {
     const me = (state.selfId || '').trim();
@@ -1154,18 +1241,14 @@
   function formatTimestamp(rawTimestamp) {
     if (!rawTimestamp) return '';
     
-    console.log('[MW IDE Chat] formatTimestamp input:', JSON.stringify(rawTimestamp));
-    
     // Try to parse the timestamp and reformat it for better alignment
     try {
       // Handle different timestamp formats
       let timeStr = rawTimestamp.replace(/[\[\]]/g, ''); // Remove brackets
-      console.log('[MW IDE Chat] timeStr after bracket removal:', JSON.stringify(timeStr));
       
       // Check for date + time format: "12/29 5:16:02 PM"
       const dateTimeMatch = timeStr.match(/^(\d{1,2}\/\d{1,2})\s+(\d{1,2}):(\d{2}):(\d{2})\s*(AM|PM)$/i);
       if (dateTimeMatch) {
-        console.log('[MW IDE Chat] Date + time format matched:', dateTimeMatch);
         const date = dateTimeMatch[1];
         let hours = parseInt(dateTimeMatch[2]);
         const minutes = dateTimeMatch[3];
@@ -1180,14 +1263,12 @@
         }
         
         const result = `[${date} ${hours.toString().padStart(2, '0')}:${minutes}:${seconds}]`;
-        console.log('[MW IDE Chat] Converted date + time to 24-hour:', result);
         return result;
       }
       
       // Check for date + time format without seconds: "12/29 5:16 PM"
       const dateTimeNoSecondsMatch = timeStr.match(/^(\d{1,2}\/\d{1,2})\s+(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
       if (dateTimeNoSecondsMatch) {
-        console.log('[MW IDE Chat] Date + time format (no seconds) matched:', dateTimeNoSecondsMatch);
         const date = dateTimeNoSecondsMatch[1];
         let hours = parseInt(dateTimeNoSecondsMatch[2]);
         const minutes = dateTimeNoSecondsMatch[3];
@@ -1201,7 +1282,6 @@
         }
         
         const result = `[${date} ${hours.toString().padStart(2, '0')}:${minutes}:00]`;
-        console.log('[MW IDE Chat] Converted date + time (no seconds) to 24-hour:', result);
         return result;
       }
       
@@ -1210,14 +1290,12 @@
         const parts = timeStr.split(':');
         const hours = parts[0].padStart(2, '0');
         const result = `[${hours}:${parts[1]}:${parts[2]}]`;
-        console.log('[MW IDE Chat] 24-hour format detected, result:', result);
         return result;
       }
       
       // If it's 12-hour format, convert to 24-hour for better alignment
       const match = timeStr.match(/^(\d{1,2}):(\d{2}):(\d{2})\s*(AM|PM)$/i);
       if (match) {
-        console.log('[MW IDE Chat] 12-hour format with seconds matched:', match);
         let hours = parseInt(match[1]);
         const minutes = match[2];
         const seconds = match[3];
@@ -1231,14 +1309,12 @@
         }
         
         const result = `[${hours.toString().padStart(2, '0')}:${minutes}:${seconds}]`;
-        console.log('[MW IDE Chat] Converted to 24-hour:', result);
         return result;
       }
       
       // Try to match format without seconds
       const matchNoSeconds = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
       if (matchNoSeconds) {
-        console.log('[MW IDE Chat] 12-hour format without seconds matched:', matchNoSeconds);
         let hours = parseInt(matchNoSeconds[1]);
         const minutes = matchNoSeconds[2];
         const ampm = matchNoSeconds[3].toUpperCase();
@@ -1251,11 +1327,9 @@
         }
         
         const result = `[${hours.toString().padStart(2, '0')}:${minutes}:00]`;
-        console.log('[MW IDE Chat] Converted to 24-hour (no seconds):', result);
         return result;
       }
       
-      console.log('[MW IDE Chat] No pattern matched, returning original');
       // Fallback: return original timestamp
       return rawTimestamp;
     } catch (e) {
@@ -1268,14 +1342,7 @@
   /* ======= Message ingestion ======= */
   function parseMessage(node) {
     const rawTs = node.querySelector('[class*="timestamp"]')?.textContent?.trim() || '';
-    // Debug: log ALL timestamps to understand the format
-    if (rawTs) {
-      console.log('[MW IDE Chat] Raw timestamp:', JSON.stringify(rawTs), 'Length:', rawTs.length);
-    }
     const ts = formatTimestamp(rawTs);
-    if (rawTs && ts !== rawTs) {
-      console.log('[MW IDE Chat] Formatted timestamp:', JSON.stringify(rawTs), '->', JSON.stringify(ts));
-    }
     const isSystem = (node.className || '').includes('system');
     const name = node.querySelector('[class*="name"]')?.textContent?.trim() || '';
 
@@ -1296,18 +1363,52 @@
     } else {
       // No game links, just get text content
       text = clone.textContent.trim().replace(/\s+/g, ' ');
+      
+      // Check if there are any <a> tags (like tupian.li links)
+      if (clone.querySelector('a')) {
+        htmlContent = clone.innerHTML.trim();
+      }
     }
     
     // 移除消息开头的冒号和空格（通常在用户名后面）
     if (text.startsWith(': ')) {
       text = text.substring(2);
-      if (htmlContent) {
-        htmlContent = htmlContent.replace(/^:\s*/, '');
-      }
     } else if (text.startsWith(':')) {
       text = text.substring(1);
-      if (htmlContent) {
-        htmlContent = htmlContent.replace(/^:/, '');
+    }
+    
+    // 对于HTML内容，需要更仔细地处理": "前缀
+    if (htmlContent) {
+      // 如果HTML内容以": "开头（纯文本情况）
+      if (htmlContent.startsWith(': ')) {
+        htmlContent = htmlContent.substring(2);
+      } else if (htmlContent.startsWith(':')) {
+        htmlContent = htmlContent.substring(1);
+      } else {
+        // 如果HTML以标签开头，但文本内容有": "前缀，需要在第一个文本节点中移除
+        // 这种情况通常发生在消息以物品链接等HTML元素开始时
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = htmlContent;
+        
+        // 查找第一个文本节点
+        const walker = document.createTreeWalker(
+          tempDiv,
+          NodeFilter.SHOW_TEXT,
+          null,
+          false
+        );
+        
+        const firstTextNode = walker.nextNode();
+        if (firstTextNode && firstTextNode.textContent) {
+          const originalText = firstTextNode.textContent;
+          if (originalText.startsWith(': ')) {
+            firstTextNode.textContent = originalText.substring(2);
+            htmlContent = tempDiv.innerHTML;
+          } else if (originalText.startsWith(':')) {
+            firstTextNode.textContent = originalText.substring(1);
+            htmlContent = tempDiv.innerHTML;
+          }
+        }
       }
     }
 
@@ -1322,11 +1423,13 @@
     // Determine the message content to display
     let messageContent;
     if (m.htmlContent) {
-      // Process HTML content with game links (keep original styling)
-      messageContent = highlightMentions(m.htmlContent);
+      // Process HTML content: first images, then game links, then mentions
+      messageContent = processImageLinks(m.htmlContent);
+      messageContent = highlightMentions(messageContent);
     } else {
-      // Regular text message
-      messageContent = highlightMentions(esc(m.text));
+      // Regular text message - process for image links first, then mentions
+      messageContent = processImageLinks(esc(m.text));
+      messageContent = highlightMentions(messageContent);
     }
     
     if (m.isSystem || !m.name) {
@@ -1985,7 +2088,7 @@
       if (state.enabled) renderSidebar();
     }).observe(chatPanel, { subtree: true, childList: true, attributes: true });
 
-    console.log('[MW IDE Chat] v0.14.14 loaded (message alignment: added minimum width for usernames to align message content)');
+    console.log('[MW IDE Chat] v0.14.20 loaded (removed debug console.log statements)');
   }
 
   main();

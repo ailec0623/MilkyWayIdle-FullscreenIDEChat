@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         MilkyWayIdle - Fullscreen IDE Chat (摸牛助手)
 // @namespace    https://www.milkywayidle.com/
-// @version      0.8.0
-// @description  IDE layout: left channel list, right content, fixed bottom input, unread highlight. Uses MUI aria-controls to bind tab->tabpanel; reads only that panel; waits for TabPanel_hidden removal.
+// @version      0.9.0
+// @description  IDE layout: left channel list, right content, fixed bottom input. Overlay uses its own textarea to avoid React remount wiping drafts. Incremental message rendering.
 // @match        https://milkywayidle.com/*
 // @match        https://www.milkywayidle.com/*
 // @match        https://milkywayidlecn.com/*
@@ -15,7 +15,6 @@
   'use strict';
 
   const CFG = {
-    // ids
     overlayId: 'mw-ide-overlay',
     toggleBtnId: 'mw-ide-toggle',
     topbarId: 'mw-ide-topbar',
@@ -26,13 +25,16 @@
     bodyId: 'mw-ide-body',
     footerId: 'mw-ide-footer',
 
-    // site selectors (hash classes may change; keep "contains" selectors)
+    // overlay input ids
+    localInputId: 'mw-ide-local-input',
+    sendBtnId: 'mw-ide-send',
+
+    // site selectors
     chatPanelSel: '[class*="GamePage_chatPanel"]',
     tabPanelSel: 'div[class*="TabPanel_tabPanel"]',
     tabHiddenClassPart: 'TabPanel_hidden',
     msgSel: 'div[class*="ChatMessage_chatMessage"]',
 
-    // behavior
     maxLinesPerChannel: 3000,
     autoScroll: true,
 
@@ -61,7 +63,6 @@
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "JetBrains Mono", monospace;
     }
 
-    /* topbar */
     #${CFG.topbarId}{
       display:flex; align-items:center; gap:10px;
       padding: 10px 12px;
@@ -79,15 +80,13 @@
     }
     #${CFG.topbarId} .btn:hover{ border-color: rgba(255,255,255,.25); }
 
-    /* layout: sidebar + main */
     #${CFG.layoutId}{
       flex: 1;
       display: grid;
       grid-template-columns: 260px 1fr;
-      min-height: 0; /* allow children to scroll */
+      min-height: 0;
     }
 
-    /* sidebar */
     #${CFG.sidebarId}{
       border-right: 1px solid rgba(255,255,255,.10);
       background: #0b0e14;
@@ -170,7 +169,6 @@
       background: rgba(120,200,255,.15);
     }
 
-    /* main */
     #${CFG.mainId}{
       display:flex;
       flex-direction: column;
@@ -193,40 +191,172 @@
     .mw-ide-name{ opacity: .90; }
     .mw-ide-sys{ opacity: .80; }
 
-    /* footer fixed in overlay */
+    /* ========= Footer + Local Input (bigger, IDE style) ========= */
     #${CFG.footerId}{
       border-top: 1px solid rgba(255,255,255,.10);
       background: #0b0e14;
       padding: 10px 12px;
       display: flex;
-      align-items: center;
+      align-items: flex-end;
       gap: 10px;
     }
     #${CFG.footerId} .hint{
       font-size: 11px;
-      opacity: .70;
+      opacity: .55;
       white-space: nowrap;
+      align-self: center;
     }
     #${CFG.footerId} .inputHost{
       flex: 1;
       min-width: 200px;
+      display:flex;
+      align-items:flex-end;
+      gap: 8px;
     }
-    #${CFG.footerId} .inputHost textarea,
-    #${CFG.footerId} .inputHost input,
-    #${CFG.footerId} .inputHost [contenteditable="true"]{
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "JetBrains Mono", monospace !important;
+
+    /* Bigger textarea */
+    #${CFG.localInputId}{
+      flex: 1;
+      min-height: 110px;
+      max-height: 240px;
+      resize: none;
+      line-height: 1.45;
+      padding: 12px 12px;
+
+      background: #0f111a;
+      color: #d7dce8;
+
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,.14);
+      outline: none;
+
+      font-size: 13px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "JetBrains Mono", monospace;
     }
+    #${CFG.localInputId}:focus{
+      border-color: rgba(120,200,255,.55);
+      box-shadow: 0 0 0 1px rgba(120,200,255,.25);
+    }
+
+    /* Small IDE-ish send button (no blue) */
+    #${CFG.sendBtnId}{
+      width: 34px;
+      height: 34px;
+      min-width: 34px;
+      border-radius: 8px;
+
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.14);
+      color: #cfd6e6;
+
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      cursor: pointer;
+      user-select: none;
+    }
+    #${CFG.sendBtnId}:hover{
+      background: rgba(255,255,255,.12);
+      border-color: rgba(255,255,255,.30);
+    }
+    #${CFG.sendBtnId}:active{
+      background: rgba(120,200,255,.18);
+      border-color: rgba(120,200,255,.45);
+    }
+
+    /* ===== IDE message layout ===== */
+    #mw-ide-body{
+    font-variant-numeric: tabular-nums; /* 时间对齐更像 IDE */
+    }
+
+    .mw-ide-line{
+    display: grid;
+    grid-template-columns: minmax(0, 18ch) 100px 1fr; /* 时间 | 名字 | 内容 */
+    column-gap: 1px;
+    align-items: start;
+    }
+
+    .mw-ide-ts{
+    white-space: nowrap;
+    }
+
+    .mw-ide-name{
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: .92;
+    }
+
+    .mw-ide-msg{
+    white-space: pre-wrap;
+    word-break: break-word;
+    }
+
+    /* 系统消息：名字列空出来更清爽 */
+    .mw-ide-line.mw-ide-sys{
+    grid-template-columns: 76px 1fr;
+    }
+
+    /* @mention highlight */
+    .mw-mention{
+    padding: 0 4px;
+    border-radius: 6px;
+    background: rgba(120,200,255,.16);
+    border: 1px solid rgba(120,200,255,.22);
+    color: #d7eaff;
+    }
+
+    /* ===== Pause + new messages bar ===== */
+    #mw-ide-status{
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    z-index: 2;
+    font-size: 11px;
+    opacity: .8;
+    display: none;
+    padding: 4px 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.14);
+    background: rgba(11,14,20,.75);
+}
+
+#mw-ide-newbar{
+  position: absolute;
+  bottom: 130px; /* 让它浮在输入框上方：你输入时不挡 */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+
+  display: none;
+  align-items: center;
+  gap: 10px;
+
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(120,200,255,.30);
+  background: rgba(11,14,20,.86);
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+}
+
+#mw-ide-newbar:hover{
+  border-color: rgba(120,200,255,.55);
+  background: rgba(11,14,20,.92);
+}
+
   `);
 
-  const $  = (s, r=document) => r.querySelector(s);
-  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
   const esc = s => String(s ?? '')
-    .replaceAll('&','&amp;').replaceAll('<','&lt;')
-    .replaceAll('>','&gt;').replaceAll('"','&quot;')
-    .replaceAll("'",'&#039;');
+    .replaceAll('&', '&amp;').replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;').replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
 
-  function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
   const state = {
     enabled: false,
@@ -239,10 +369,8 @@
 
     // restore original UI
     chatPanelOriginalStyle: null,
-    inputMoved: false,
-    inputRestore: null,
 
-    // bind tab -> channel name
+    // tab bindings
     tabInfoByChannel: new Map(), // channel -> { tabBtn }
 
     // observe only the ACTIVE panel
@@ -250,18 +378,162 @@
 
     // sidebar search
     filterText: '',
+
+    // incremental render
+    renderedCount: new Map(), // channel -> number of rendered lines
+    // scroll state
+    isPaused: false,
+    atBottom: true,
+    activeNewWhilePaused: 0,
   };
+  function readSelfIdFromPage() {
+    // 1) 先锁定 Header 区域，避免撞到聊天消息里的 CharacterName_name__*
+    const header =
+      document.querySelector('[class*="Header_name__"]') ||
+      document.querySelector('.Header_name__227rJ'); // 兼容你给的示例
+    if (!header) return '';
+
+    // 2) 在 header 内部找角色名节点（class 会变，但必包含 CharacterName_name__ 前缀）
+    const nameEl = header.querySelector('[class*="CharacterName_name__"]');
+    if (!nameEl) return '';
+
+    // 3) 优先用 data-name（更稳定），否则取 span/textContent
+    const dataName = (nameEl.getAttribute('data-name') || '').trim();
+    if (dataName) return dataName;
+
+    const spanText = (nameEl.querySelector('span')?.textContent || '').trim();
+    if (spanText) return spanText;
+
+    return (nameEl.textContent || '').trim();
+  }
+
+  function startSelfIdWatcher() {
+    // 初次读取
+    const v = readSelfIdFromPage();
+    console.log('[MW IDE Chat] readSelfIdFromPage() =>', v);
+    if (v) state.selfId = v;
+
+    // 只观察 Header 区域即可（更轻，不会被聊天刷屏影响）
+    const header =
+      document.querySelector('[class*="Header_name__"]') ||
+      document.querySelector('.Header_name__227rJ');
+
+    if (!header) {
+      // 如果 header 还没出现（React 延迟加载），退化成短轮询，出现后再切回 observer
+      const t = setInterval(() => {
+        const h =
+          document.querySelector('[class*="Header_name__"]') ||
+          document.querySelector('.Header_name__227rJ');
+        if (!h) return;
+
+        clearInterval(t);
+        startSelfIdWatcher(); // 递归一次，走 observer 分支
+      }, 300);
+      return;
+    }
+
+    const obs = new MutationObserver(() => {
+      const nv = readSelfIdFromPage();
+      if (nv && nv !== state.selfId) {
+        state.selfId = nv;
+
+        // selfId变化时，重绘当前频道一次，让 @ 高亮重新生效
+        if (state.enabled) renderBodyFull();
+      }
+    });
+
+    obs.observe(header, { subtree: true, childList: true, attributes: true });
+  }
+
+
+  function highlightMentions(safeHtmlText) {
+    const me = (state.selfId || '').trim();
+    if (!me) return safeHtmlText;
+
+    const escapedMe = me.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    const re = new RegExp(`(^|[\\s>（(【\\[“"'，,。.!?;:])(@${escapedMe})(?=$|[^\\w\\u4e00-\\u9fa5-])`, 'g');
+
+    return safeHtmlText.replace(re, (m, p1, tag) => {
+      return `${p1}<span class="mw-mention">${tag}</span>`;
+    });
+  }
+
+  function isNearBottom(el, thresholdPx = 80) {
+    return (el.scrollHeight - el.scrollTop - el.clientHeight) <= thresholdPx;
+  }
+
+  function isNearBottom(el, thresholdPx = 80) {
+    return (el.scrollHeight - el.scrollTop - el.clientHeight) <= thresholdPx;
+  }
+
+  function setPaused(paused) {
+    state.isPaused = paused;
+    const s = document.getElementById('mw-ide-status');
+    if (s) s.style.display = paused ? 'block' : 'none';
+  }
+
+  function showNewBar(show, count = 0) {
+    const bar = document.getElementById('mw-ide-newbar');
+    const text = document.getElementById('mw-ide-newbar-text');
+    if (!bar || !text) return;
+
+    if (!show) {
+      bar.style.display = 'none';
+      return;
+    }
+    text.textContent = count > 0 ? `New messages (${count}) • click to jump` : `New messages • click to jump`;
+    bar.style.display = 'flex';
+  }
+
+  function jumpToBottomAndResume() {
+    const body = document.getElementById(CFG.bodyId);
+    if (!body) return;
+    body.scrollTop = body.scrollHeight;
+    state.activeNewWhilePaused = 0;
+    showNewBar(false);
+    setPaused(false);
+  }
+
+  function setPaused(paused) {
+    state.isPaused = paused;
+    const s = document.getElementById('mw-ide-status');
+    if (s) s.style.display = paused ? 'block' : 'none';
+  }
+
+  function showNewBar(show, count = 0) {
+    const bar = document.getElementById('mw-ide-newbar');
+    const text = document.getElementById('mw-ide-newbar-text');
+    if (!bar || !text) return;
+
+    if (!show) {
+      bar.style.display = 'none';
+      return;
+    }
+    text.textContent = count > 0 ? `New messages (${count}) • click to jump` : `New messages • click to jump`;
+    bar.style.display = 'flex';
+  }
+
+  function jumpToBottomAndResume() {
+    const body = document.getElementById(CFG.bodyId);
+    if (!body) return;
+    body.scrollTop = body.scrollHeight;
+    state.activeNewWhilePaused = 0;
+    showNewBar(false);
+    setPaused(false);
+  }
 
   function ensureChannel(name) {
     const ch = (name && name.trim()) ? name.trim() : 'default';
     if (!state.channels.has(ch)) {
       state.channels.set(ch, { lines: [], sigSet: new Set(), sigQueue: [], unread: 0 });
       state.knownChannels.add(ch);
+      state.renderedCount.set(ch, 0);
     }
     return ch;
   }
 
-  /* ======= MUI Tabs: stable channel name + badge number ======= */
+  /* ======= MUI Tabs helpers ======= */
   function getTabButtons(panel) {
     return $$('button[role="tab"]', panel);
   }
@@ -269,7 +541,6 @@
   function getTabName(tabButton) {
     const badge = tabButton.querySelector('.MuiBadge-root');
     if (!badge) return 'default';
-
     for (const n of badge.childNodes) {
       if (n.nodeType === Node.TEXT_NODE) {
         const t = n.textContent.trim();
@@ -298,14 +569,12 @@
       const el = document.getElementById(id) || $('#' + CSS.escape(id), chatPanel);
       if (el) return el;
     }
-
     const tabs = getTabButtons(chatPanel);
     const idx = tabs.indexOf(tabBtn);
     if (idx >= 0) {
       const panels = $$(CFG.tabPanelSel, chatPanel);
       if (panels[idx]) return panels[idx];
     }
-
     const panels = $$(CFG.tabPanelSel, chatPanel);
     return panels.find(p => !isPanelHidden(p)) || panels[0] || null;
   }
@@ -325,7 +594,7 @@
     return ensureChannel(selected ? getTabName(selected) : 'default');
   }
 
-  /* ======= Message ingestion (ONLY from a specific TabPanel) ======= */
+  /* ======= Message ingestion ======= */
   function parseMessage(node) {
     const ts = node.querySelector('[class*="timestamp"]')?.textContent?.trim() || '';
     const isSystem = (node.className || '').includes('system');
@@ -334,20 +603,22 @@
     const clone = node.cloneNode(true);
     clone.querySelector('[class*="timestamp"]')?.remove();
     clone.querySelector('[class*="name"]')?.remove();
-    const text = clone.textContent.trim().replace(/\s+/g,' ');
+    const text = clone.textContent.trim().replace(/\s+/g, ' ');
 
     return { ts, name, text, isSystem };
   }
 
   function signature(m) {
-    return `${m.isSystem?'S':'U'}|${m.ts}|${m.name}|${m.text}`;
+    return `${m.isSystem ? 'S' : 'U'}|${m.ts}|${m.name}|${m.text}`;
   }
 
   function formatLine(m) {
     if (m.isSystem || !m.name) {
-      return `<div class="mw-ide-line mw-ide-sys"><span class="mw-ide-ts">${esc(m.ts)}</span> ${esc(m.text)}</div>`;
+      return `<div class="mw-ide-line"><span class="mw-ide-ts">${esc(m.ts)}</span><span class="mw-ide-name">System</span><span class="mw-ide-msg">${highlightMentions(esc(m.text))}</span></div>`;
     }
-    return `<div class="mw-ide-line"><span class="mw-ide-ts">${esc(m.ts)}</span> <span class="mw-ide-name">${esc(m.name)}</span>: ${esc(m.text)}</div>`;
+
+    return `<div class="mw-ide-line"><span class="mw-ide-ts">${esc(m.ts)}</span><span class="mw-ide-name">${esc(m.name)}</span><span class="mw-ide-msg">${highlightMentions(esc(m.text))}</span></div>`;
+
   }
 
   function storeLine(channel, m) {
@@ -364,6 +635,9 @@
       store.lines.shift();
       const old = store.sigQueue.shift();
       if (old) store.sigSet.delete(old);
+      // if we trimmed already-rendered lines, reset renderedCount conservatively
+      const rc = state.renderedCount.get(ch) || 0;
+      state.renderedCount.set(ch, Math.max(0, rc - 1));
     }
     while (store.sigQueue.length > CFG.maxLinesPerChannel * 2) {
       const old = store.sigQueue.shift();
@@ -374,15 +648,25 @@
 
   function bumpUnreadIfNeeded(channelName) {
     const ch = ensureChannel(channelName);
-    if (ch === state.activeChannel) return;
     const store = state.channels.get(ch);
-    store.unread += 1;
+
+    if (ch !== state.activeChannel) {
+      store.unread += 1;
+      return;
+    }
+
+    // 当前频道：只有当用户不在底部（paused）才计未读
+    if (!state.atBottom || state.isPaused) {
+      store.unread += 1;
+      state.activeNewWhilePaused += 1;
+      showNewBar(true, state.activeNewWhilePaused);
+    }
   }
+
 
   function clearUnread(channelName) {
     const ch = ensureChannel(channelName);
-    const store = state.channels.get(ch);
-    store.unread = 0;
+    state.channels.get(ch).unread = 0;
   }
 
   function ingestFromPanel(panelEl, channelName) {
@@ -401,12 +685,54 @@
     }
 
     if (state.enabled) {
-      renderSidebar(); // refresh unread badges
-      if (changed && state.activeChannel === channelName) renderBody();
+      // refresh sidebar badges, but only sidebar (doesn't touch input)
+      renderSidebar();
+
+      // only append new lines for current channel
+      if (changed && state.activeChannel === channelName) {
+        appendNewLinesForActiveChannel();
+      }
     }
   }
 
-  /* ======= Switching: click original tab and wait until its panel is NOT hidden ======= */
+  /* ======= Incremental rendering (only append new lines) ======= */
+  function appendNewLinesForActiveChannel() {
+    const body = $('#' + CFG.bodyId);
+    if (!body) return;
+
+    const ch = ensureChannel(state.activeChannel);
+    const store = state.channels.get(ch);
+    const already = state.renderedCount.get(ch) || 0;
+
+    if (!store || store.lines.length <= already) return;
+
+    const frag = document.createDocumentFragment();
+    for (let i = already; i < store.lines.length; i++) {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = store.lines[i];
+      frag.appendChild(tmp.firstElementChild);
+    }
+    body.appendChild(frag);
+    state.renderedCount.set(ch, store.lines.length);
+
+    if (CFG.autoScroll && state.atBottom && !state.isPaused) {
+      body.scrollTop = body.scrollHeight;
+    }
+  }
+
+  function renderBodyFull() {
+    const body = $('#' + CFG.bodyId);
+    if (!body) return;
+
+    const ch = ensureChannel(state.activeChannel);
+    const store = state.channels.get(ch);
+    body.innerHTML = store?.lines.join('') || '';
+    state.renderedCount.set(ch, store?.lines.length || 0);
+
+    if (CFG.autoScroll) body.scrollTop = body.scrollHeight;
+  }
+
+  /* ======= Switching ======= */
   async function waitUntilPanelVisible(getPanelFn) {
     const start = Date.now();
     while (Date.now() - start < CFG.waitPanelVisibleTimeoutMs) {
@@ -419,7 +745,7 @@
 
   function attachActivePanelObserver(panelEl, channelName) {
     if (state.activePanelObserver) {
-      try { state.activePanelObserver.disconnect(); } catch {}
+      try { state.activePanelObserver.disconnect(); } catch { }
       state.activePanelObserver = null;
     }
     if (!panelEl) return;
@@ -441,7 +767,7 @@
       state.activeChannel = ensureChannel(channelName);
       clearUnread(channelName);
       renderSidebar();
-      renderBody();
+      renderBodyFull();
       return;
     }
 
@@ -458,10 +784,14 @@
     attachActivePanelObserver(panelEl, channelName);
 
     renderSidebar();
-    renderBody();
+    renderBodyFull(); // channel switch => full render once
+    state.activeNewWhilePaused = 0;
+    showNewBar(false);
+    setPaused(false);
+
   }
 
-  /* ======= Move/restore original UI only when overlay enabled ======= */
+  /* ======= Keep original chat panel alive but offscreen ======= */
   function applyOffscreen(panel) {
     if (!panel) return;
     if (state.chatPanelOriginalStyle === null) {
@@ -485,49 +815,80 @@
     state.chatPanelOriginalStyle = null;
   }
 
-  function findInputContainer(panel) {
-    const input =
-      panel.querySelector('textarea') ||
-      panel.querySelector('input[type="text"]') ||
-      panel.querySelector('[contenteditable="true"]');
-    if (!input) return null;
-
+  /* ======= Local input -> sync to original input on send ======= */
+  function findOriginalInput() {
+    if (!state.chatPanel) return null;
     return (
-      input.closest('form') ||
-      input.closest('[class*="Chat"]') ||
-      input.closest('[class*="chat"]') ||
-      input.parentElement
+      state.chatPanel.querySelector('textarea') ||
+      state.chatPanel.querySelector('input[type="text"]') ||
+      state.chatPanel.querySelector('[contenteditable="true"]')
     );
   }
 
-  function moveInputIntoOverlay(panel) {
-    if (state.inputMoved) return;
-    const host = $('#'+CFG.footerId)?.querySelector('.inputHost');
-    if (!host || !panel) return;
+  function findOriginalSendButton() {
+    if (!state.chatPanel) return null;
 
-    const container = findInputContainer(panel);
-    if (!container) return;
+    // Try common button patterns in chat input area
+    const candidates = $$('button', state.chatPanel).filter(b => {
+      const t = (b.textContent || '').trim().toLowerCase();
+      const aria = (b.getAttribute('aria-label') || '').toLowerCase();
+      return t === 'send' || t === '发送' || aria.includes('send') || aria.includes('发送');
+    });
 
-    state.inputRestore = {
-      node: container,
-      parent: container.parentElement,
-      nextSibling: container.nextSibling,
-    };
-    host.appendChild(container);
-    state.inputMoved = true;
+    if (candidates[0]) return candidates[0];
+
+    // fallback: last button near input container
+    const input = findOriginalInput();
+    if (!input) return null;
+    const container = input.closest('form') || input.closest('[class*="Chat"]') || input.parentElement;
+    if (!container) return null;
+    const btns = $$('button', container);
+    return btns[btns.length - 1] || null;
   }
 
-  function restoreInputBack() {
-    if (!state.inputMoved || !state.inputRestore) return;
-    const { node, parent, nextSibling } = state.inputRestore;
-    try { if (parent) parent.insertBefore(node, nextSibling); } catch {}
-    state.inputMoved = false;
-    state.inputRestore = null;
+  function setOriginalInputValue(inputEl, text) {
+    if (!inputEl) return;
+
+    if (inputEl.isContentEditable) {
+      inputEl.textContent = text;
+      inputEl.dispatchEvent(new InputEvent('input', { bubbles: true }));
+      return;
+    }
+
+    // textarea / input
+    const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(inputEl), 'value')?.set;
+    if (setter) setter.call(inputEl, text);
+    else inputEl.value = text;
+
+    inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+    inputEl.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
-  /* ======= Overlay UI (IDE layout) ======= */
+  function doSend() {
+    const local = $('#' + CFG.localInputId);
+    if (!local) return;
+    const text = (local.value || '').trimEnd();
+    if (!text.trim()) return;
+
+    const origInput = findOriginalInput();
+    setOriginalInputValue(origInput, text);
+
+    const sendBtn = findOriginalSendButton();
+    if (sendBtn) {
+      sendBtn.click();
+    } else {
+      // fallback: try form submit
+      const form = origInput?.closest('form');
+      if (form) form.requestSubmit?.();
+    }
+
+    // clear local input after send
+    local.value = '';
+  }
+
+  /* ======= UI ======= */
   function createUI() {
-    if ($('#'+CFG.overlayId)) return;
+    if ($('#' + CFG.overlayId)) return;
 
     document.body.insertAdjacentHTML('beforeend', `
       <div id="${CFG.toggleBtnId}">IDE Chat: OFF (Alt+I)</div>
@@ -547,20 +908,26 @@
             <div id="${CFG.chanListId}"></div>
           </aside>
 
-          <main id="${CFG.mainId}">
+          <main id="${CFG.mainId}" style="position:relative;">
             <div id="${CFG.bodyId}"></div>
+
+            <div id="mw-ide-status">Paused</div>
+            <div id="mw-ide-newbar"><span id="mw-ide-newbar-text">New messages</span></div>
+
             <div id="${CFG.footerId}">
-              <div class="hint">Alt+I toggle</div>
-              <div class="inputHost"></div>
+              <div class="inputHost">
+                <textarea id="${CFG.localInputId}" placeholder="Type a message…"></textarea>
+                <button id="${CFG.sendBtnId}" title="Send">▶</button>
+              </div>
             </div>
           </main>
         </div>
       </div>
     `);
 
-    $('#'+CFG.toggleBtnId).addEventListener('click', () => toggleOverlay());
+    $('#' + CFG.toggleBtnId).addEventListener('click', () => toggleOverlay());
 
-    $('#'+CFG.overlayId).addEventListener('click', (e) => {
+    $('#' + CFG.overlayId).addEventListener('click', (e) => {
       const btn = e.target?.closest('button[data-action]');
       if (!btn) return;
       const a = btn.getAttribute('data-action');
@@ -576,24 +943,33 @@
       state.filterText = (filter.value || '').trim().toLowerCase();
       renderSidebar();
     });
+
+    $('#' + CFG.sendBtnId).addEventListener('click', () => doSend());
+
+    // Enter to send (no newline supported)
+    $('#' + CFG.localInputId).addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();   // 阻止 textarea 插入换行
+        doSend();
+      }
+    });
   }
 
   function setToggleText() {
-    const b = $('#'+CFG.toggleBtnId);
+    const b = $('#' + CFG.toggleBtnId);
     if (b) b.textContent = `IDE Chat: ${state.enabled ? 'ON' : 'OFF'} (Alt+I)`;
   }
 
   function renderSidebar() {
-    const list = $('#'+CFG.chanListId);
+    const list = $('#' + CFG.chanListId);
     if (!list) return;
 
-    // refresh bindings to read site badge counts (optional)
     syncTabBindings(state.chatPanel);
 
     const filter = state.filterText;
     const channels = Array.from(state.knownChannels)
       .filter(ch => !filter || ch.toLowerCase().includes(filter))
-      .sort((a,b) => a.localeCompare(b));
+      .sort((a, b) => a.localeCompare(b));
 
     list.innerHTML = '';
 
@@ -601,7 +977,6 @@
       const store = state.channels.get(ch) || { unread: 0 };
       const isActive = (ch === state.activeChannel);
 
-      // also show site-provided unread badge if available
       let siteBadge = 0;
       const info = state.tabInfoByChannel.get(ch);
       if (info?.tabBtn) siteBadge = getTabUnreadBadge(info.tabBtn);
@@ -616,22 +991,13 @@
           ${siteBadge > 0 ? `<span class="mw-badge">${siteBadge}</span>` : ''}
         </div>
       `;
-
       row.addEventListener('click', () => switchToChannel(ch));
       list.appendChild(row);
     }
   }
 
-  function renderBody() {
-    const body = $('#'+CFG.bodyId);
-    if (!body) return;
-    const store = state.channels.get(state.activeChannel);
-    body.innerHTML = store?.lines.join('') || '';
-    if (CFG.autoScroll) body.scrollTop = body.scrollHeight;
-  }
-
   function showOverlay(show) {
-    const overlay = $('#'+CFG.overlayId);
+    const overlay = $('#' + CFG.overlayId);
     overlay.style.display = show ? 'flex' : 'none';
     document.body.style.overflow = show ? 'hidden' : '';
   }
@@ -644,12 +1010,9 @@
     showOverlay(next);
 
     if (next) {
-      // Enable
       syncTabBindings(state.chatPanel);
       applyOffscreen(state.chatPanel);
-      moveInputIntoOverlay(state.chatPanel);
 
-      // lock to selected channel only
       const selectedChannel = getSelectedChannel(state.chatPanel);
       state.activeChannel = ensureChannel(selectedChannel);
       clearUnread(selectedChannel);
@@ -661,14 +1024,44 @@
       attachActivePanelObserver(selectedPanel, selectedChannel);
 
       renderSidebar();
-      renderBody();
-    } else {
-      // Disable
-      restoreInputBack();
-      restoreChatPanel(state.chatPanel);
+      renderBodyFull();
 
+      const body = document.getElementById(CFG.bodyId);
+      if (body && !body.__mwScrollBound) {
+        body.__mwScrollBound = true;
+        body.addEventListener('scroll', () => {
+          const near = isNearBottom(body, 80);
+          state.atBottom = near;
+
+          if (near) {
+            // 用户回到底部：自动恢复跟随并清掉浮条
+            state.activeNewWhilePaused = 0;
+            showNewBar(false);
+            setPaused(false);
+            clearUnread(state.activeChannel);
+            renderSidebar();
+          } else {
+            // 用户往上翻：进入 paused
+            state.atBottom = false;
+            setPaused(true);
+          }
+        }, { passive: true });
+      }
+
+      // newbar click => jump bottom
+      const nb = document.getElementById('mw-ide-newbar');
+      if (nb && !nb.__mwBound) {
+        nb.__mwBound = true;
+        nb.addEventListener('click', () => jumpToBottomAndResume());
+      }
+
+
+      // focus local input
+      setTimeout(() => $('#' + CFG.localInputId)?.focus(), 0);
+    } else {
+      restoreChatPanel(state.chatPanel);
       if (state.activePanelObserver) {
-        try { state.activePanelObserver.disconnect(); } catch {}
+        try { state.activePanelObserver.disconnect(); } catch { }
         state.activePanelObserver = null;
       }
     }
@@ -697,18 +1090,18 @@
 
     const chatPanel = await waitForChatPanel();
     state.chatPanel = chatPanel;
-
-    // init known channels
+    startSelfIdWatcher();
+    // init channels
     syncTabBindings(chatPanel);
 
-    // Update channel list when tabs list changes (e.g., channels appear/disappear)
+    // update channels when tabs change
     new MutationObserver(() => {
       if (!state.chatPanel) return;
       syncTabBindings(state.chatPanel);
       if (state.enabled) renderSidebar();
     }).observe(chatPanel, { subtree: true, childList: true, attributes: true });
 
-    console.log('[MW IDE Chat] v0.8.0 loaded (IDE layout + unread highlight)');
+    console.log('[MW IDE Chat] v0.9.0 loaded (local input + incremental rendering)');
   }
 
   main();

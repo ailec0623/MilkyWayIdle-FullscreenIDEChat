@@ -2,7 +2,7 @@
 // @name         MilkyWayIdle - Fullscreen IDE Chat
 // @name:zh-CN   MilkyWayIdle - 全屏 IDE 聊天
 // @namespace    https://github.com/ailec0623/MilkyWayIdle-FullscreenIDEChat
-// @version      0.14.20
+// @version      0.14.21
 // @description  Fullscreen IDE-style chat for MilkyWayIdle: channel tree, aligned log view, unread tracking, pause-follow mode, local input (no draft loss), adjustable font size, drag-to-reorder channels, improved message layout, click username to mention, double-click message to copy, cross-platform hotkeys, game link highlighting, auto image display.
 // @description:zh-CN  为 MilkyWayIdle 提供全屏 IDE 风格聊天界面：频道列表、日志对齐、未读提示、暂停跟随、本地输入（不丢草稿）、可调节字体大小、拖拽排序频道、改进消息布局、点击用户名快速@、双击消息复制、跨平台快捷键、游戏链接高亮、自动图片显示。
 // @author       400BadRequest
@@ -787,6 +787,26 @@
           <img src="${fullUrl}" alt="Image" class="mw-embedded-image" loading="lazy" 
                onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';" />
           <span class="mw-image-fallback" style="display:none;">${displayText}</span>
+        </a>
+      </div>`;
+    });
+    
+    // Also handle <a> tags with class="chat-img" format (from other plugins)
+    // Format: <a href="..." class="chat-img"><span>[图片]</span></a>
+    const chatImgRegex = /<a\s+[^>]*href=["'](https?:\/\/tupian\.li\/\w+[^"']*?)["'][^>]*class=["']chat-img["'][^>]*>.*?<\/a>/gi;
+    
+    processedContent = processedContent.replace(chatImgRegex, (match, fullUrl) => {
+      // Skip if it's just the main domain
+      if (fullUrl.match(/^https?:\/\/tupian\.li\/?$/)) {
+        return match; // Return original link unchanged
+      }
+      
+      // Create image element with the full URL from href attribute
+      return `<div class="mw-image-container">
+        <a href="${fullUrl}" target="_blank" rel="noreferrer noopener nofollow" class="mw-image-link">
+          <img src="${fullUrl}" alt="Image" class="mw-embedded-image" loading="lazy" 
+               onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';" />
+          <span class="mw-image-fallback" style="display:none;">[图片]</span>
         </a>
       </div>`;
     });
@@ -2088,7 +2108,7 @@
       if (state.enabled) renderSidebar();
     }).observe(chatPanel, { subtree: true, childList: true, attributes: true });
 
-    console.log('[MW IDE Chat] v0.14.20 loaded (removed debug console.log statements)');
+    console.log('[MW IDE Chat] v0.14.21 loaded (added support for chat-img class format from other plugins)');
   }
 
   main();

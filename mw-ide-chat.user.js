@@ -2,9 +2,9 @@
 // @name         MilkyWayIdle - Fullscreen IDE Chat
 // @name:zh-CN   MilkyWayIdle - 全屏 IDE 聊天
 // @namespace    https://github.com/ailec0623/MilkyWayIdle-FullscreenIDEChat
-// @version      0.10.1
-// @description  Fullscreen IDE-style chat for MilkyWayIdle: channel tree, aligned log view, unread tracking, pause-follow mode, local input (no draft loss), adjustable font size.
-// @description:zh-CN  为 MilkyWayIdle 提供全屏 IDE 风格聊天界面：频道列表、日志对齐、未读提示、暂停跟随、本地输入（不丢草稿）、可调节字体大小。
+// @version      0.11.0
+// @description  Fullscreen IDE-style chat for MilkyWayIdle: channel tree, aligned log view, unread tracking, pause-follow mode, local input (no draft loss), adjustable font size, drag-to-reorder channels.
+// @description:zh-CN  为 MilkyWayIdle 提供全屏 IDE 风格聊天界面：频道列表、日志对齐、未读提示、暂停跟随、本地输入（不丢草稿）、可调节字体大小、拖拽排序频道。
 // @author       400BadRequest
 // @copyright    2025, 400BadRequest
 // @license      MIT
@@ -61,6 +61,10 @@
     fontSizes: [10, 11, 12, 13, 14, 15, 16, 18, 20],
     defaultFontSize: 12,
     storageKey: 'mw-ide-chat-settings',
+
+    // drag and drop settings
+    dragPlaceholderClass: 'mw-chan-placeholder',
+    dragGhostClass: 'mw-chan-dragging',
   };
 
   GM_addStyle(`
@@ -172,6 +176,20 @@
       font-size: 12px;
       font-family: inherit;
     }
+    #${CFG.sidebarId} .reset-order-btn{
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 6px;
+      padding: 4px 8px;
+      color: #cfd6e6;
+      cursor: pointer;
+      font-size: 12px;
+      opacity: .7;
+    }
+    #${CFG.sidebarId} .reset-order-btn:hover{
+      opacity: 1;
+      border-color: rgba(255,255,255,.20);
+    }
 
     #${CFG.chanListId}{
       padding: 8px 6px;
@@ -188,6 +206,8 @@
       cursor: pointer;
       user-select: none;
       opacity: .88;
+      transition: all 0.2s ease;
+      position: relative;
     }
     .mw-chan:hover{ background: rgba(255,255,255,.06); opacity: 1; }
     .mw-chan.active{
@@ -195,10 +215,38 @@
       opacity: 1;
       outline: 1px solid rgba(255,255,255,.14);
     }
+    .mw-chan.dragging{
+      opacity: 0.5;
+      transform: rotate(2deg);
+      z-index: 1000;
+      box-shadow: 0 4px 12px rgba(0,0,0,.3);
+    }
+    .mw-chan-placeholder{
+      height: 32px;
+      margin: 2px 0;
+      border: 2px dashed rgba(120,200,255,.4);
+      border-radius: 8px;
+      background: rgba(120,200,255,.08);
+    }
     .mw-chan .dot{
       width: 8px; height: 8px; border-radius: 999px;
       background: rgba(255,255,255,.25);
       flex: 0 0 auto;
+      position: relative;
+    }
+    .mw-chan .dot::before{
+      content: '⋮⋮';
+      position: absolute;
+      left: -2px;
+      top: -8px;
+      font-size: 8px;
+      color: rgba(255,255,255,.3);
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      pointer-events: none;
+    }
+    .mw-chan:hover .dot::before{
+      opacity: 1;
     }
     .mw-chan.unread .dot{ background: rgba(120,200,255,.95); }
 
@@ -473,6 +521,14 @@
 
     // font size
     fontSize: getSetting('fontSize', CFG.defaultFontSize),
+
+    // channel ordering
+    channelOrder: getSetting('channelOrder', []),
+    dragState: {
+      isDragging: false,
+      draggedChannel: null,
+      placeholder: null,
+    },
   };
   function readSelfIdFromPage() {
     // 1) 先锁定 Header 区域，避免撞到聊天消息里的 CharacterName_name__*
@@ -652,6 +708,141 @@
     const currentIndex = CFG.fontSizes.indexOf(state.fontSize);
     const nextIndex = (currentIndex + 1) % CFG.fontSizes.length;
     updateFontSize(CFG.fontSizes[nextIndex]);
+  }
+
+  // Channel ordering management
+  function saveChannelOrder() {
+    setSetting('channelOrder', state.channelOrder);
+  }
+
+  function getOrderedChannels(channels) {
+    const ordered = [];
+    const unordered = [];
+    
+    // 首先按照保存的顺序添加频道
+    for (const channelName of state.channelOrder) {
+      if (channels.includes(channelName)) {
+        ordered.push(channelName);
+      }
+    }
+    
+    // 然后添加新的未排序的频道
+    for (const channelName of channels) {
+      if (!state.channelOrder.includes(channelName)) {
+        unordered.push(channelName);
+      }
+    }
+    
+    // 按字母顺序排序新频道
+    unordered.sort((a, b) => a.localeCompare(b));
+    
+    return [...ordered, ...unordered];
+  }
+
+  function updateChannelOrder(newOrder) {
+    state.channelOrder = newOrder;
+    saveChannelOrder();
+  }
+
+  function resetChannelOrder() {
+    state.channelOrder = [];
+    saveChannelOrder();
+    renderSidebar();
+  }
+
+  // Drag and drop functionality
+  function createPlaceholder() {
+    const placeholder = document.createElement('div');
+    placeholder.className = CFG.dragPlaceholderClass;
+    return placeholder;
+  }
+
+  function handleDragStart(e, channelName) {
+    state.dragState.isDragging = true;
+    state.dragState.draggedChannel = channelName;
+    
+    const draggedElement = e.target.closest('.mw-chan');
+    if (draggedElement) {
+      draggedElement.classList.add('dragging');
+      
+      // 创建拖拽数据
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', channelName);
+      
+      // 创建占位符
+      state.dragState.placeholder = createPlaceholder();
+    }
+  }
+
+  function handleDragOver(e) {
+    if (!state.dragState.isDragging) return;
+    
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    
+    const targetElement = e.target.closest('.mw-chan');
+    const list = document.getElementById(CFG.chanListId);
+    
+    if (targetElement && targetElement !== state.dragState.placeholder) {
+      const rect = targetElement.getBoundingClientRect();
+      const midY = rect.top + rect.height / 2;
+      
+      if (e.clientY < midY) {
+        // 插入到目标元素之前
+        list.insertBefore(state.dragState.placeholder, targetElement);
+      } else {
+        // 插入到目标元素之后
+        list.insertBefore(state.dragState.placeholder, targetElement.nextSibling);
+      }
+    }
+  }
+
+  function handleDragEnd(e) {
+    const draggedElement = e.target.closest('.mw-chan');
+    if (draggedElement) {
+      draggedElement.classList.remove('dragging');
+    }
+    
+    // 清理占位符
+    if (state.dragState.placeholder && state.dragState.placeholder.parentNode) {
+      state.dragState.placeholder.parentNode.removeChild(state.dragState.placeholder);
+    }
+    
+    state.dragState.isDragging = false;
+    state.dragState.draggedChannel = null;
+    state.dragState.placeholder = null;
+  }
+
+  function handleDrop(e) {
+    if (!state.dragState.isDragging) return;
+    
+    e.preventDefault();
+    
+    const list = document.getElementById(CFG.chanListId);
+    const placeholder = state.dragState.placeholder;
+    
+    if (placeholder && placeholder.parentNode) {
+      // 获取新的排序
+      const newOrder = [];
+      const children = Array.from(list.children);
+      
+      for (const child of children) {
+        if (child === placeholder) {
+          newOrder.push(state.dragState.draggedChannel);
+        } else if (child.classList.contains('mw-chan')) {
+          const channelName = child.dataset.channel;
+          if (channelName && channelName !== state.dragState.draggedChannel) {
+            newOrder.push(channelName);
+          }
+        }
+      }
+      
+      // 更新频道顺序
+      updateChannelOrder(newOrder);
+      
+      // 重新渲染侧边栏
+      renderSidebar();
+    }
   }
 
   function ensureChannel(name) {
@@ -1036,6 +1227,7 @@
             <div class="sidebarHeader">
               <div class="label">Channels</div>
               <input id="mw-ide-filter" placeholder="filter…" />
+              <button class="reset-order-btn" title="Reset channel order">↻</button>
             </div>
             <div id="${CFG.chanListId}"></div>
           </aside>
@@ -1100,6 +1292,16 @@
       renderSidebar();
     });
 
+    // 重置排序按钮事件
+    const resetBtn = document.querySelector('.reset-order-btn');
+    if (resetBtn) {
+      resetBtn.addEventListener('click', () => {
+        if (confirm('Reset channel order to alphabetical?')) {
+          resetChannelOrder();
+        }
+      });
+    }
+
     $('#' + CFG.sendBtnId).addEventListener('click', () => doSend());
 
     // Enter to send (no newline supported)
@@ -1123,9 +1325,11 @@
     syncTabBindings(state.chatPanel);
 
     const filter = state.filterText;
-    const channels = Array.from(state.knownChannels)
-      .filter(ch => !filter || ch.toLowerCase().includes(filter))
-      .sort((a, b) => a.localeCompare(b));
+    const allChannels = Array.from(state.knownChannels)
+      .filter(ch => !filter || ch.toLowerCase().includes(filter));
+    
+    // 使用排序后的频道列表
+    const channels = getOrderedChannels(allChannels);
 
     list.innerHTML = '';
 
@@ -1139,6 +1343,8 @@
 
       const row = document.createElement('div');
       row.className = 'mw-chan' + (isActive ? ' active' : '') + ((store.unread > 0 || siteBadge > 0) ? ' unread' : '');
+      row.draggable = true;
+      row.dataset.channel = ch;
       row.innerHTML = `
         <div class="dot"></div>
         <div class="name" title="${esc(ch)}">${esc(ch)}</div>
@@ -1147,9 +1353,24 @@
           ${siteBadge > 0 ? `<span class="mw-badge">${siteBadge}</span>` : ''}
         </div>
       `;
-      row.addEventListener('click', () => switchToChannel(ch));
+      
+      // 添加点击事件（防止拖拽时触发）
+      row.addEventListener('click', (e) => {
+        if (!state.dragState.isDragging) {
+          switchToChannel(ch);
+        }
+      });
+      
+      // 添加拖拽事件
+      row.addEventListener('dragstart', (e) => handleDragStart(e, ch));
+      row.addEventListener('dragend', handleDragEnd);
+      
       list.appendChild(row);
     }
+    
+    // 为列表添加拖拽事件
+    list.addEventListener('dragover', handleDragOver);
+    list.addEventListener('drop', handleDrop);
   }
 
   function showOverlay(show) {
@@ -1260,7 +1481,7 @@
       if (state.enabled) renderSidebar();
     }).observe(chatPanel, { subtree: true, childList: true, attributes: true });
 
-    console.log('[MW IDE Chat] v0.10.1 loaded (local input + incremental rendering + adjustable font size - fixed dropdown bug)');
+    console.log('[MW IDE Chat] v0.11.0 loaded (local input + incremental rendering + adjustable font size + drag-to-reorder channels)');
   }
 
   main();

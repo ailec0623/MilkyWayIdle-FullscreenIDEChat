@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         MilkyWayIdle - Fullscreen IDE Chat (摸牛助手)
 // @namespace    https://www.milkywayidle.com/
-// @version      0.7.0
-// @description  Fullscreen IDE chat for MilkyWayIdle
+// @version      0.8.0
+// @description  IDE layout: left channel list, right content, fixed bottom input, unread highlight. Uses MUI aria-controls to bind tab->tabpanel; reads only that panel; waits for TabPanel_hidden removal.
 // @match        https://milkywayidle.com/*
 // @match        https://www.milkywayidle.com/*
 // @match        https://milkywayidlecn.com/*
@@ -11,23 +11,28 @@
 // @grant        GM_addStyle
 // ==/UserScript==
 
-
 (() => {
   'use strict';
 
   const CFG = {
+    // ids
     overlayId: 'mw-ide-overlay',
     toggleBtnId: 'mw-ide-toggle',
     topbarId: 'mw-ide-topbar',
-    tabsId: 'mw-ide-tabs',
+    layoutId: 'mw-ide-layout',
+    sidebarId: 'mw-ide-sidebar',
+    chanListId: 'mw-ide-chanlist',
+    mainId: 'mw-ide-main',
     bodyId: 'mw-ide-body',
     footerId: 'mw-ide-footer',
 
+    // site selectors (hash classes may change; keep "contains" selectors)
     chatPanelSel: '[class*="GamePage_chatPanel"]',
     tabPanelSel: 'div[class*="TabPanel_tabPanel"]',
-    tabHiddenClassPart: 'TabPanel_hidden', // matches TabPanel_hidden__26UM3
+    tabHiddenClassPart: 'TabPanel_hidden',
     msgSel: 'div[class*="ChatMessage_chatMessage"]',
 
+    // behavior
     maxLinesPerChannel: 3000,
     autoScroll: true,
 
@@ -55,14 +60,17 @@
       display: none; flex-direction: column;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "JetBrains Mono", monospace;
     }
+
+    /* topbar */
     #${CFG.topbarId}{
-      display: flex; align-items: center; gap: 10px;
-      padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,.10);
+      display:flex; align-items:center; gap:10px;
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(255,255,255,.10);
       background: #0b0e14;
     }
     #${CFG.topbarId} .title{
-      flex: 1; font-size: 13px; letter-spacing: .3px; opacity: .95;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      flex:1; font-size: 13px; letter-spacing: .3px; opacity: .95;
+      white-space: nowrap; overflow:hidden; text-overflow: ellipsis;
     }
     #${CFG.topbarId} .btn{
       padding: 6px 10px; border-radius: 8px;
@@ -71,40 +79,138 @@
     }
     #${CFG.topbarId} .btn:hover{ border-color: rgba(255,255,255,.25); }
 
-    #${CFG.tabsId}{
-      display: flex; gap: 8px; padding: 10px 14px;
+    /* layout: sidebar + main */
+    #${CFG.layoutId}{
+      flex: 1;
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      min-height: 0; /* allow children to scroll */
+    }
+
+    /* sidebar */
+    #${CFG.sidebarId}{
+      border-right: 1px solid rgba(255,255,255,.10);
+      background: #0b0e14;
+      min-height: 0;
+      display:flex;
+      flex-direction: column;
+    }
+    #${CFG.sidebarId} .sidebarHeader{
+      padding: 10px 12px;
       border-bottom: 1px solid rgba(255,255,255,.08);
-      overflow-x: auto;
+      display:flex;
+      align-items:center;
+      gap:10px;
     }
-    #${CFG.tabsId} .tab{
-      padding: 6px 10px; border-radius: 999px;
-      border: 1px solid rgba(255,255,255,.14);
-      font-size: 12px; cursor: pointer;
-      white-space: nowrap; opacity: .85; user-select: none;
+    #${CFG.sidebarId} .sidebarHeader .label{
+      font-size: 12px;
+      opacity: .85;
     }
-    #${CFG.tabsId} .tab.active{
-      opacity: 1; border-color: rgba(255,255,255,.40);
-      background: rgba(255,255,255,.08);
+    #${CFG.sidebarId} .sidebarHeader input{
+      flex: 1;
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 8px;
+      padding: 6px 8px;
+      color: #cfd6e6;
+      outline: none;
+      font-size: 12px;
+      font-family: inherit;
+    }
+
+    #${CFG.chanListId}{
+      padding: 8px 6px;
+      overflow: auto;
+      min-height: 0;
+    }
+
+    .mw-chan{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      user-select: none;
+      opacity: .88;
+    }
+    .mw-chan:hover{ background: rgba(255,255,255,.06); opacity: 1; }
+    .mw-chan.active{
+      background: rgba(255,255,255,.10);
+      opacity: 1;
+      outline: 1px solid rgba(255,255,255,.14);
+    }
+    .mw-chan .dot{
+      width: 8px; height: 8px; border-radius: 999px;
+      background: rgba(255,255,255,.25);
+      flex: 0 0 auto;
+    }
+    .mw-chan.unread .dot{ background: rgba(120,200,255,.95); }
+
+    .mw-chan .name{
+      flex: 1;
+      font-size: 12px;
+      overflow:hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .mw-chan .badges{
+      display:flex; align-items:center; gap:6px; flex: 0 0 auto;
+      font-size: 11px;
+      opacity: .9;
+    }
+    .mw-badge{
+      padding: 1px 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.16);
+      background: rgba(255,255,255,.06);
+    }
+    .mw-badge.unread{
+      border-color: rgba(120,200,255,.55);
+      background: rgba(120,200,255,.15);
+    }
+
+    /* main */
+    #${CFG.mainId}{
+      display:flex;
+      flex-direction: column;
+      min-height: 0;
+      background: #0f111a;
     }
 
     #${CFG.bodyId}{
-      flex: 1; overflow: auto; padding: 12px 16px;
-      font-size: 12px; line-height: 1.5;
-      white-space: pre-wrap; word-break: break-word;
+      flex: 1;
+      overflow: auto;
+      padding: 12px 16px;
+      font-size: 12px;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      word-break: break-word;
+      min-height: 0;
     }
     .mw-ide-line{ padding: 1px 0; }
     .mw-ide-ts{ opacity: .65; }
     .mw-ide-name{ opacity: .90; }
     .mw-ide-sys{ opacity: .80; }
 
+    /* footer fixed in overlay */
     #${CFG.footerId}{
       border-top: 1px solid rgba(255,255,255,.10);
       background: #0b0e14;
-      padding: 10px 14px;
-      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
-    #${CFG.footerId} .hint{ font-size: 11px; opacity: .70; white-space: nowrap; }
-    #${CFG.footerId} .inputHost{ flex: 1; min-width: 200px; }
+    #${CFG.footerId} .hint{
+      font-size: 11px;
+      opacity: .70;
+      white-space: nowrap;
+    }
+    #${CFG.footerId} .inputHost{
+      flex: 1;
+      min-width: 200px;
+    }
     #${CFG.footerId} .inputHost textarea,
     #${CFG.footerId} .inputHost input,
     #${CFG.footerId} .inputHost [contenteditable="true"]{
@@ -126,7 +232,7 @@
     enabled: false,
     chatPanel: null,
 
-    // channel -> { lines: [], sigSet: Set, sigQueue: [] }
+    // channel -> { lines: [], sigSet: Set, sigQueue: [], unread: number }
     channels: new Map(),
     knownChannels: new Set(),
     activeChannel: 'default',
@@ -136,29 +242,31 @@
     inputMoved: false,
     inputRestore: null,
 
-    // bind tab -> channel name and tabpanel
-    tabInfoByChannel: new Map(), // channel -> { tabBtn, panelEl? }
+    // bind tab -> channel name
+    tabInfoByChannel: new Map(), // channel -> { tabBtn }
 
     // observe only the ACTIVE panel
     activePanelObserver: null,
+
+    // sidebar search
+    filterText: '',
   };
 
   function ensureChannel(name) {
     const ch = (name && name.trim()) ? name.trim() : 'default';
     if (!state.channels.has(ch)) {
-      state.channels.set(ch, { lines: [], sigSet: new Set(), sigQueue: [] });
+      state.channels.set(ch, { lines: [], sigSet: new Set(), sigQueue: [], unread: 0 });
       state.knownChannels.add(ch);
     }
     return ch;
   }
 
-  /* ========== MUI Tabs: stable channel name ========== */
+  /* ======= MUI Tabs: stable channel name + badge number ======= */
   function getTabButtons(panel) {
     return $$('button[role="tab"]', panel);
   }
 
   function getTabName(tabButton) {
-    // <span class="MuiBadge-root">中文<span class="MuiBadge-badge">0</span></span>
     const badge = tabButton.querySelector('.MuiBadge-root');
     if (!badge) return 'default';
 
@@ -168,25 +276,29 @@
         if (t) return t;
       }
     }
-    // fallback
     const raw = (badge.textContent || '').trim();
     return raw.replace(/\s*\d+\s*$/, '').trim() || 'default';
   }
 
+  function getTabUnreadBadge(tabButton) {
+    const badge = tabButton.querySelector('.MuiBadge-badge');
+    if (!badge) return 0;
+    const v = parseInt((badge.textContent || '').trim(), 10);
+    return Number.isFinite(v) ? v : 0;
+  }
+
   function isPanelHidden(panelEl) {
-    const cls = panelEl.className || '';
+    const cls = panelEl?.className || '';
     return cls.includes(CFG.tabHiddenClassPart);
   }
 
   function getTabPanelForTabButton(chatPanel, tabBtn) {
-    // Best: aria-controls -> tabpanel id
     const id = tabBtn.getAttribute('aria-controls');
     if (id) {
       const el = document.getElementById(id) || $('#' + CSS.escape(id), chatPanel);
       if (el) return el;
     }
 
-    // Fallback: index mapping (nth tab -> nth tabpanel)
     const tabs = getTabButtons(chatPanel);
     const idx = tabs.indexOf(tabBtn);
     if (idx >= 0) {
@@ -194,7 +306,6 @@
       if (panels[idx]) return panels[idx];
     }
 
-    // Last fallback: currently visible panel
     const panels = $$(CFG.tabPanelSel, chatPanel);
     return panels.find(p => !isPanelHidden(p)) || panels[0] || null;
   }
@@ -204,7 +315,7 @@
     const tabs = getTabButtons(chatPanel);
     for (const t of tabs) {
       const name = ensureChannel(getTabName(t));
-      state.tabInfoByChannel.set(name, { tabBtn: t, panelEl: null });
+      state.tabInfoByChannel.set(name, { tabBtn: t });
     }
   }
 
@@ -214,7 +325,7 @@
     return ensureChannel(selected ? getTabName(selected) : 'default');
   }
 
-  /* ========== Message ingestion (ONLY from a specific TabPanel) ========== */
+  /* ======= Message ingestion (ONLY from a specific TabPanel) ======= */
   function parseMessage(node) {
     const ts = node.querySelector('[class*="timestamp"]')?.textContent?.trim() || '';
     const isSystem = (node.className || '').includes('system');
@@ -261,24 +372,41 @@
     return true;
   }
 
+  function bumpUnreadIfNeeded(channelName) {
+    const ch = ensureChannel(channelName);
+    if (ch === state.activeChannel) return;
+    const store = state.channels.get(ch);
+    store.unread += 1;
+  }
+
+  function clearUnread(channelName) {
+    const ch = ensureChannel(channelName);
+    const store = state.channels.get(ch);
+    store.unread = 0;
+  }
+
   function ingestFromPanel(panelEl, channelName) {
     if (!panelEl) return;
-    // IMPORTANT: only look inside THIS tabpanel
+
     const msgNodes = $$(CFG.msgSel, panelEl);
     let changed = false;
 
     for (const n of msgNodes) {
       const m = parseMessage(n);
       if (!m.text) continue;
-      if (storeLine(channelName, m)) changed = true;
+      if (storeLine(channelName, m)) {
+        changed = true;
+        bumpUnreadIfNeeded(channelName);
+      }
     }
 
-    if (state.enabled && changed && state.activeChannel === channelName) {
-      renderBody();
+    if (state.enabled) {
+      renderSidebar(); // refresh unread badges
+      if (changed && state.activeChannel === channelName) renderBody();
     }
   }
 
-  /* ========== Switching: click original tab and wait until its panel is NOT hidden ========== */
+  /* ======= Switching: click original tab and wait until its panel is NOT hidden ======= */
   async function waitUntilPanelVisible(getPanelFn) {
     const start = Date.now();
     while (Date.now() - start < CFG.waitPanelVisibleTimeoutMs) {
@@ -286,7 +414,7 @@
       if (p && !isPanelHidden(p)) return p;
       await sleep(CFG.waitPollMs);
     }
-    return getPanelFn(); // may still be hidden
+    return getPanelFn();
   }
 
   function attachActivePanelObserver(panelEl, channelName) {
@@ -309,10 +437,10 @@
     syncTabBindings(chatPanel);
 
     const info = state.tabInfoByChannel.get(channelName);
-    if (!info || !info.tabBtn) {
-      // Can't find original tab; still switch IDE view
+    if (!info?.tabBtn) {
       state.activeChannel = ensureChannel(channelName);
-      renderTabs();
+      clearUnread(channelName);
+      renderSidebar();
       renderBody();
       return;
     }
@@ -321,20 +449,19 @@
     tabBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
 
     const panelEl = await waitUntilPanelVisible(() => getTabPanelForTabButton(chatPanel, tabBtn));
-    info.panelEl = panelEl;
-
-    // Ingest only that panel
-    ingestFromPanel(panelEl, channelName);
-
-    // Observe only the active panel
-    attachActivePanelObserver(panelEl, channelName);
 
     state.activeChannel = ensureChannel(channelName);
-    renderTabs();
+    clearUnread(channelName);
+
+    // ingest only that panel; then observe
+    ingestFromPanel(panelEl, channelName);
+    attachActivePanelObserver(panelEl, channelName);
+
+    renderSidebar();
     renderBody();
   }
 
-  /* ========== Move/restore original UI only when overlay enabled ========== */
+  /* ======= Move/restore original UI only when overlay enabled ======= */
   function applyOffscreen(panel) {
     if (!panel) return;
     if (state.chatPanelOriginalStyle === null) {
@@ -398,7 +525,7 @@
     state.inputRestore = null;
   }
 
-  /* ========== Overlay UI ========== */
+  /* ======= Overlay UI (IDE layout) ======= */
   function createUI() {
     if ($('#'+CFG.overlayId)) return;
 
@@ -410,11 +537,23 @@
           <button class="btn" data-action="toggle-scroll">AutoScroll: ON</button>
           <button class="btn" data-action="exit">Exit</button>
         </div>
-        <div id="${CFG.tabsId}"></div>
-        <div id="${CFG.bodyId}"></div>
-        <div id="${CFG.footerId}">
-          <div class="hint">Alt+I toggle • IDE tab click = original tab click</div>
-          <div class="inputHost"></div>
+
+        <div id="${CFG.layoutId}">
+          <aside id="${CFG.sidebarId}">
+            <div class="sidebarHeader">
+              <div class="label">Channels</div>
+              <input id="mw-ide-filter" placeholder="filter…" />
+            </div>
+            <div id="${CFG.chanListId}"></div>
+          </aside>
+
+          <main id="${CFG.mainId}">
+            <div id="${CFG.bodyId}"></div>
+            <div id="${CFG.footerId}">
+              <div class="hint">Alt+I toggle</div>
+              <div class="inputHost"></div>
+            </div>
+          </main>
         </div>
       </div>
     `);
@@ -431,6 +570,12 @@
         btn.textContent = `AutoScroll: ${CFG.autoScroll ? 'ON' : 'OFF'}`;
       }
     });
+
+    const filter = $('#mw-ide-filter');
+    filter.addEventListener('input', () => {
+      state.filterText = (filter.value || '').trim().toLowerCase();
+      renderSidebar();
+    });
   }
 
   function setToggleText() {
@@ -438,20 +583,42 @@
     if (b) b.textContent = `IDE Chat: ${state.enabled ? 'ON' : 'OFF'} (Alt+I)`;
   }
 
-  function renderTabs() {
-    const wrap = $('#'+CFG.tabsId);
-    if (!wrap) return;
-    wrap.innerHTML = '';
+  function renderSidebar() {
+    const list = $('#'+CFG.chanListId);
+    if (!list) return;
 
-    const channels = Array.from(state.knownChannels);
-    channels.sort((a,b) => a.localeCompare(b));
+    // refresh bindings to read site badge counts (optional)
+    syncTabBindings(state.chatPanel);
+
+    const filter = state.filterText;
+    const channels = Array.from(state.knownChannels)
+      .filter(ch => !filter || ch.toLowerCase().includes(filter))
+      .sort((a,b) => a.localeCompare(b));
+
+    list.innerHTML = '';
 
     for (const ch of channels) {
-      const tab = document.createElement('div');
-      tab.className = 'tab' + (ch === state.activeChannel ? ' active' : '');
-      tab.textContent = ch;
-      tab.addEventListener('click', () => switchToChannel(ch));
-      wrap.appendChild(tab);
+      const store = state.channels.get(ch) || { unread: 0 };
+      const isActive = (ch === state.activeChannel);
+
+      // also show site-provided unread badge if available
+      let siteBadge = 0;
+      const info = state.tabInfoByChannel.get(ch);
+      if (info?.tabBtn) siteBadge = getTabUnreadBadge(info.tabBtn);
+
+      const row = document.createElement('div');
+      row.className = 'mw-chan' + (isActive ? ' active' : '') + ((store.unread > 0 || siteBadge > 0) ? ' unread' : '');
+      row.innerHTML = `
+        <div class="dot"></div>
+        <div class="name" title="${esc(ch)}">${esc(ch)}</div>
+        <div class="badges">
+          ${store.unread > 0 ? `<span class="mw-badge unread">${store.unread}</span>` : ''}
+          ${siteBadge > 0 ? `<span class="mw-badge">${siteBadge}</span>` : ''}
+        </div>
+      `;
+
+      row.addEventListener('click', () => switchToChannel(ch));
+      list.appendChild(row);
     }
   }
 
@@ -482,18 +649,18 @@
       applyOffscreen(state.chatPanel);
       moveInputIntoOverlay(state.chatPanel);
 
-      // Lock to currently selected channel/panel ONLY (no mixed ingest)
+      // lock to selected channel only
       const selectedChannel = getSelectedChannel(state.chatPanel);
       state.activeChannel = ensureChannel(selectedChannel);
+      clearUnread(selectedChannel);
 
       const selectedTabBtn = state.tabInfoByChannel.get(selectedChannel)?.tabBtn;
       const selectedPanel = selectedTabBtn ? getTabPanelForTabButton(state.chatPanel, selectedTabBtn) : null;
 
-      // Ingest ONLY selected panel
       ingestFromPanel(selectedPanel, selectedChannel);
       attachActivePanelObserver(selectedPanel, selectedChannel);
 
-      renderTabs();
+      renderSidebar();
       renderBody();
     } else {
       // Disable
@@ -507,7 +674,7 @@
     }
   }
 
-  /* ========== Bootstrap ========== */
+  /* ======= Bootstrap ======= */
   async function waitForChatPanel() {
     return new Promise((resolve) => {
       const t = setInterval(() => {
@@ -531,20 +698,17 @@
     const chatPanel = await waitForChatPanel();
     state.chatPanel = chatPanel;
 
+    // init known channels
     syncTabBindings(chatPanel);
 
-    // Don’t ingest everything at init (prevents “mixed channels”).
-    // Only ingest the CURRENT selected channel when overlay is enabled.
-    renderTabs();
-
-    // If tabs list changes, resync channels
+    // Update channel list when tabs list changes (e.g., channels appear/disappear)
     new MutationObserver(() => {
       if (!state.chatPanel) return;
       syncTabBindings(state.chatPanel);
-      if (state.enabled) renderTabs();
+      if (state.enabled) renderSidebar();
     }).observe(chatPanel, { subtree: true, childList: true, attributes: true });
 
-    console.log('[MW IDE Chat] v0.7.0 loaded (aria-controls + hidden class aware)');
+    console.log('[MW IDE Chat] v0.8.0 loaded (IDE layout + unread highlight)');
   }
 
   main();

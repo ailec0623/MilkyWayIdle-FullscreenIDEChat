@@ -2,9 +2,9 @@
 // @name         MilkyWayIdle - Fullscreen IDE Chat
 // @name:zh-CN   MilkyWayIdle - 全屏 IDE 聊天
 // @namespace    https://github.com/ailec0623/MilkyWayIdle-FullscreenIDEChat
-// @version      0.14.21
-// @description  Fullscreen IDE-style chat for MilkyWayIdle: channel tree, aligned log view, unread tracking, pause-follow mode, local input (no draft loss), adjustable font size, drag-to-reorder channels, improved message layout, click username to mention, double-click message to copy, cross-platform hotkeys, game link highlighting, auto image display.
-// @description:zh-CN  为 MilkyWayIdle 提供全屏 IDE 风格聊天界面：频道列表、日志对齐、未读提示、暂停跟随、本地输入（不丢草稿）、可调节字体大小、拖拽排序频道、改进消息布局、点击用户名快速@、双击消息复制、跨平台快捷键、游戏链接高亮、自动图片显示。
+// @version      0.15.0
+// @description  Fullscreen IDE-style chat for MilkyWayIdle: channel tree, aligned log view, unread tracking, pause-follow mode, local input (no draft loss), adjustable font size, drag-to-reorder channels, improved message layout, click username to mention, double-click message to copy, cross-platform hotkeys, configurable game link highlighting, configurable auto image display.
+// @description:zh-CN  为 MilkyWayIdle 提供全屏 IDE 风格聊天界面：频道列表、日志对齐、未读提示、暂停跟随、本地输入（不丢草稿）、可调节字体大小、拖拽排序频道、改进消息布局、点击用户名快速@、双击消息复制、跨平台快捷键、可配置游戏链接高亮、可配置自动图片显示。
 // @author       400BadRequest
 // @copyright    2025, 400BadRequest
 // @license      MIT
@@ -404,7 +404,7 @@
       cursor: pointer;
       border-radius: 4px;
       padding: 1px 4px;
-      margin: -1px 12px -1px -4px; /* Right margin to separate from message */
+      margin: -1px 20px -1px -4px; /* Right margin to separate from message */
       transition: background-color 0.2s ease;
       position: relative;
       flex-shrink: 0; /* Prevent username from shrinking */
@@ -704,6 +704,10 @@
       draggedChannel: null,
       placeholder: null,
     },
+
+    // feature toggles
+    showImages: getSetting('showImages', true),
+    showGameLinks: getSetting('showGameLinks', true),
   };
   function readSelfIdFromPage() {
     // 1) 先锁定 Header 区域，避免撞到聊天消息里的 CharacterName_name__*
@@ -765,7 +769,8 @@
 
 
   function processImageLinks(htmlContent) {
-    if (!htmlContent || typeof htmlContent !== 'string') {
+    // 如果图片显示被禁用，直接返回原内容
+    if (!state.showImages || !htmlContent || typeof htmlContent !== 'string') {
       return htmlContent;
     }
     
@@ -1442,12 +1447,18 @@
   function formatLine(m) {
     // Determine the message content to display
     let messageContent;
-    if (m.htmlContent) {
-      // Process HTML content: first images, then game links, then mentions
+    
+    // 如果游戏链接被禁用，只使用纯文本内容
+    if (!state.showGameLinks && m.htmlContent) {
+      // 使用纯文本内容，但仍然处理图片链接和提及
+      messageContent = processImageLinks(esc(m.text));
+      messageContent = highlightMentions(messageContent);
+    } else if (m.htmlContent) {
+      // 正常处理HTML内容：先处理图片，再处理提及
       messageContent = processImageLinks(m.htmlContent);
       messageContent = highlightMentions(messageContent);
     } else {
-      // Regular text message - process for image links first, then mentions
+      // 普通文本消息 - 先处理图片链接，再处理提及
       messageContent = processImageLinks(esc(m.text));
       messageContent = highlightMentions(messageContent);
     }
@@ -1839,6 +1850,8 @@
         <div id="${CFG.topbarId}">
           <div class="title">MilkyWayIdle • IDE Chat View</div>
           <button class="btn" data-action="font-size"><span class="btn-text">Font: ${state.fontSize}px</span></button>
+          <button class="btn" data-action="toggle-images">Images: ${state.showImages ? 'ON' : 'OFF'}</button>
+          <button class="btn" data-action="toggle-gamelinks">Game Links: ${state.showGameLinks ? 'ON' : 'OFF'}</button>
           <button class="btn" data-action="toggle-scroll">AutoScroll: ON</button>
           <button class="btn" data-action="exit">Exit</button>
         </div>
@@ -1888,6 +1901,20 @@
       if (a === 'toggle-scroll') {
         CFG.autoScroll = !CFG.autoScroll;
         btn.textContent = `AutoScroll: ${CFG.autoScroll ? 'ON' : 'OFF'}`;
+      }
+      if (a === 'toggle-images') {
+        state.showImages = !state.showImages;
+        setSetting('showImages', state.showImages);
+        btn.textContent = `Images: ${state.showImages ? 'ON' : 'OFF'}`;
+        // 重新渲染当前频道以应用更改
+        renderBodyFull();
+      }
+      if (a === 'toggle-gamelinks') {
+        state.showGameLinks = !state.showGameLinks;
+        setSetting('showGameLinks', state.showGameLinks);
+        btn.textContent = `Game Links: ${state.showGameLinks ? 'ON' : 'OFF'}`;
+        // 重新渲染当前频道以应用更改
+        renderBodyFull();
       }
       if (a === 'font-size') {
         e.stopPropagation();
@@ -2108,7 +2135,7 @@
       if (state.enabled) renderSidebar();
     }).observe(chatPanel, { subtree: true, childList: true, attributes: true });
 
-    console.log('[MW IDE Chat] v0.14.21 loaded (added support for chat-img class format from other plugins)');
+    console.log('[MW IDE Chat] v0.15.0 loaded (added configurable image and game link display options)');
   }
 
   main();

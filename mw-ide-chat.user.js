@@ -2,9 +2,9 @@
 // @name         MilkyWayIdle - Fullscreen IDE Chat
 // @name:zh-CN   MilkyWayIdle - 全屏 IDE 聊天
 // @namespace    https://github.com/ailec0623/MilkyWayIdle-FullscreenIDEChat
-// @version      0.14.3
-// @description  Fullscreen IDE-style chat for MilkyWayIdle: channel tree, aligned log view, unread tracking, pause-follow mode, local input (no draft loss), adjustable font size, drag-to-reorder channels, improved message layout, click username to mention, double-click message to copy, cross-platform hotkeys.
-// @description:zh-CN  为 MilkyWayIdle 提供全屏 IDE 风格聊天界面：频道列表、日志对齐、未读提示、暂停跟随、本地输入（不丢草稿）、可调节字体大小、拖拽排序频道、改进消息布局、点击用户名快速@、双击消息复制、跨平台快捷键。
+// @version      0.14.14
+// @description  Fullscreen IDE-style chat for MilkyWayIdle: channel tree, aligned log view, unread tracking, pause-follow mode, local input (no draft loss), adjustable font size, drag-to-reorder channels, improved message layout, click username to mention, double-click message to copy, cross-platform hotkeys, game link highlighting.
+// @description:zh-CN  为 MilkyWayIdle 提供全屏 IDE 风格聊天界面：频道列表、日志对齐、未读提示、暂停跟随、本地输入（不丢草稿）、可调节字体大小、拖拽排序频道、改进消息布局、点击用户名快速@、双击消息复制、跨平台快捷键、游戏链接高亮。
 // @author       400BadRequest
 // @copyright    2025, 400BadRequest
 // @license      MIT
@@ -377,9 +377,7 @@
     }
 
     .mw-ide-line{
-      display: grid;
-      grid-template-columns: minmax(0, 28ch) 1fr; /* 时间+用户名 | 内容 */
-      column-gap: 12px;
+      display: flex;
       align-items: start;
       padding: calc(var(--mw-ide-font-size) * 0.08) 0; /* 动态调整行间距 */
       cursor: pointer;
@@ -394,6 +392,9 @@
     .mw-ide-ts{
       opacity: .45;
       color: #8a9199;
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0; /* Prevent timestamp from shrinking */
+      margin-right: 8px;
     }
 
     .mw-ide-name{
@@ -403,41 +404,60 @@
       cursor: pointer;
       border-radius: 4px;
       padding: 1px 4px;
-      margin: -1px -4px;
+      margin: -1px 12px -1px -4px; /* Right margin to separate from message */
       transition: background-color 0.2s ease;
       position: relative;
+      flex-shrink: 0; /* Prevent username from shrinking */
+      white-space: nowrap; /* Prevent username from wrapping */
+      min-width: 8em; /* Minimum width for username alignment */
+      display: inline-block;
     }
     .mw-ide-name:hover{
       background: rgba(255,255,255,.08);
     }
 
     /* 为不同用户提供不同的颜色 */
-    .mw-ide-name[data-user-hash="0"] { color: #7dd3fc; }
-    .mw-ide-name[data-user-hash="1"] { color: #a78bfa; }
-    .mw-ide-name[data-user-hash="2"] { color: #fb7185; }
-    .mw-ide-name[data-user-hash="3"] { color: #fbbf24; }
-    .mw-ide-name[data-user-hash="4"] { color: #34d399; }
-    .mw-ide-name[data-user-hash="5"] { color: #60a5fa; }
-    .mw-ide-name[data-user-hash="6"] { color: #f472b6; }
-    .mw-ide-name[data-user-hash="7"] { color: #a3a3a3; }
+    .mw-ide-name[data-user-hash="0"] { color: #7dd3fc; }   /* Sky Blue */
+    .mw-ide-name[data-user-hash="1"] { color: #a78bfa; }   /* Violet */
+    .mw-ide-name[data-user-hash="2"] { color: #fb7185; }   /* Rose */
+    .mw-ide-name[data-user-hash="3"] { color: #fbbf24; }   /* Amber */
+    .mw-ide-name[data-user-hash="4"] { color: #34d399; }   /* Emerald */
+    .mw-ide-name[data-user-hash="5"] { color: #60a5fa; }   /* Blue */
+    .mw-ide-name[data-user-hash="6"] { color: #f472b6; }   /* Pink */
+    .mw-ide-name[data-user-hash="7"] { color: #a3a3a3; }   /* Gray */
+    .mw-ide-name[data-user-hash="8"] { color: #f97316; }   /* Orange */
+    .mw-ide-name[data-user-hash="9"] { color: #10b981; }   /* Green */
+    .mw-ide-name[data-user-hash="10"] { color: #8b5cf6; }  /* Purple */
+    .mw-ide-name[data-user-hash="11"] { color: #06b6d4; }  /* Cyan */
+    .mw-ide-name[data-user-hash="12"] { color: #ef4444; }  /* Red */
+    .mw-ide-name[data-user-hash="13"] { color: #84cc16; }  /* Lime */
+    .mw-ide-name[data-user-hash="14"] { color: #f59e0b; }  /* Yellow */
+    .mw-ide-name[data-user-hash="15"] { color: #ec4899; }  /* Fuchsia */
+    .mw-ide-name[data-user-hash="16"] { color: #14b8a6; }  /* Teal */
+    .mw-ide-name[data-user-hash="17"] { color: #f43f5e; }  /* Rose Red */
+    .mw-ide-name[data-user-hash="18"] { color: #a855f7; }  /* Purple Light */
+    .mw-ide-name[data-user-hash="19"] { color: #22d3ee; }  /* Cyan Light */
+    .mw-ide-name[data-user-hash="20"] { color: #65a30d; }  /* Lime Dark */
+    .mw-ide-name[data-user-hash="21"] { color: #dc2626; }  /* Red Dark */
+    .mw-ide-name[data-user-hash="22"] { color: #0891b2; }  /* Sky Dark */
+    .mw-ide-name[data-user-hash="23"] { color: #c026d3; }  /* Magenta */
 
     .mw-ide-header{
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
       display: flex;
       align-items: baseline;
-      gap: 8px;
+      flex-shrink: 0; /* Prevent header from shrinking */
     }
 
     .mw-ide-msg{
       white-space: pre-wrap;
       word-break: break-word;
+      flex: 1; /* Take remaining space */
+      min-width: 0; /* Allow shrinking if needed */
     }
 
-    /* 系统消息：保持两列布局 */
+    /* 系统消息：使用相同的flex布局 */
     .mw-ide-line.mw-ide-sys{
-      grid-template-columns: minmax(0, 28ch) 1fr;
+      /* 继承父级的flex布局 */
     }
     .mw-ide-line.mw-ide-sys .mw-ide-name{
       color: #f59e0b;
@@ -451,6 +471,25 @@
       background: rgba(120,200,255,.16);
       border: 1px solid rgba(120,200,255,.22);
       color: #d7eaff;
+    }
+
+    /* Game link container adjustments */
+    .mw-ide-msg .ChatMessage_linkContainer__18Kv3 {
+      display: inline-block;
+      vertical-align: baseline;
+      margin: 0 2px;
+    }
+    
+    /* Ensure game link icons scale with font size */
+    .mw-ide-msg .Icon_icon__2LtL_ {
+      width: calc(var(--mw-ide-font-size) * 1.2) !important;
+      height: calc(var(--mw-ide-font-size) * 1.2) !important;
+      vertical-align: middle;
+    }
+    
+    /* Ensure game link elements stay inline */
+    .mw-ide-msg .ChatMessage_linkContainer__18Kv3 * {
+      vertical-align: middle;
     }
 
     /* ===== Pause + new messages bar ===== */
@@ -529,6 +568,18 @@
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
+  // DOM utilities
+  const DOM = {
+    get overlay() { return $(CFG.overlayId); },
+    get toggleBtn() { return $(CFG.toggleBtnId); },
+    get body() { return $(CFG.bodyId); },
+    get localInput() { return $(CFG.localInputId); },
+    get sendBtn() { return $(CFG.sendBtnId); },
+    get chanList() { return $(CFG.chanListId); },
+    get newBar() { return $('#mw-ide-newbar'); },
+    get status() { return $('#mw-ide-status'); }
+  };
+
   const esc = s => String(s ?? '')
     .replaceAll('&', '&amp;').replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;').replaceAll('"', '&quot;')
@@ -545,7 +596,7 @@
       hash = ((hash << 5) - hash) + char;
       hash = hash & hash; // Convert to 32bit integer
     }
-    return Math.abs(hash) % 8; // 8 different colors
+    return Math.abs(hash) % 24; // 24 different colors
   }
 
   // Settings management
@@ -695,13 +746,13 @@
 
   function setPaused(paused) {
     state.isPaused = paused;
-    const s = document.getElementById('mw-ide-status');
+    const s = DOM.status;
     if (s) s.style.display = paused ? 'block' : 'none';
   }
 
   function showNewBar(show, count = 0) {
-    const bar = document.getElementById('mw-ide-newbar');
-    const text = document.getElementById('mw-ide-newbar-text');
+    const bar = DOM.newBar;
+    const text = $('#mw-ide-newbar-text');
     if (!bar || !text) return;
 
     if (!show) {
@@ -713,7 +764,7 @@
   }
 
   function jumpToBottomAndResume() {
-    const body = document.getElementById(CFG.bodyId);
+    const body = DOM.body;
     if (!body) return;
     body.scrollTop = body.scrollHeight;
     state.activeNewWhilePaused = 0;
@@ -722,79 +773,67 @@
   }
 
   // Font size management
-  function updateFontSize(newSize) {
-    if (!CFG.fontSizes.includes(newSize)) return;
-    
-    state.fontSize = newSize;
-    setSetting('fontSize', newSize);
-    
-    // Update CSS custom property
-    document.documentElement.style.setProperty('--mw-ide-font-size', newSize + 'px');
-    
-    // Update button text
-    updateFontSizeButton();
-    
-    // Update dropdown active state
-    updateFontSizeDropdown();
-  }
+  const FontManager = {
+    update(newSize) {
+      if (!CFG.fontSizes.includes(newSize)) return;
+      
+      state.fontSize = newSize;
+      setSetting('fontSize', newSize);
+      document.documentElement.style.setProperty('--mw-ide-font-size', newSize + 'px');
+      
+      this.updateButton();
+      this.updateDropdown();
+    },
 
-  function updateFontSizeButton() {
-    const btn = document.querySelector('[data-action="font-size"]');
-    if (btn) {
-      const textSpan = btn.querySelector('.btn-text');
-      if (textSpan) {
-        textSpan.textContent = `Font: ${state.fontSize}px`;
-      }
-    }
-  }
+    updateButton() {
+      const btn = document.querySelector('[data-action="font-size"] .btn-text');
+      if (btn) btn.textContent = `Font: ${state.fontSize}px`;
+    },
 
-  function updateFontSizeDropdown() {
-    const options = document.querySelectorAll('.font-size-option');
-    options.forEach(option => {
-      const size = parseInt(option.dataset.size);
-      option.classList.toggle('active', size === state.fontSize);
-    });
-  }
-
-  function createFontSizeDropdown() {
-    const dropdown = document.createElement('div');
-    dropdown.className = 'font-size-dropdown';
-    dropdown.innerHTML = CFG.fontSizes.map(size => 
-      `<div class="font-size-option" data-size="${size}">${size}px</div>`
-    ).join('');
-    
-    dropdown.addEventListener('click', (e) => {
-      const option = e.target.closest('.font-size-option');
-      if (option) {
+    updateDropdown() {
+      document.querySelectorAll('.font-size-option').forEach(option => {
         const size = parseInt(option.dataset.size);
-        updateFontSize(size);
-        hideFontSizeDropdown();
+        option.classList.toggle('active', size === state.fontSize);
+      });
+    },
+
+    createDropdown() {
+      const dropdown = document.createElement('div');
+      dropdown.className = 'font-size-dropdown';
+      dropdown.innerHTML = CFG.fontSizes.map(size => 
+        `<div class="font-size-option" data-size="${size}">${size}px</div>`
+      ).join('');
+      
+      dropdown.addEventListener('click', (e) => {
+        const option = e.target.closest('.font-size-option');
+        if (option) {
+          this.update(parseInt(option.dataset.size));
+          this.hideDropdown();
+        }
+      });
+      
+      return dropdown;
+    },
+
+    showDropdown() {
+      const dropdown = document.querySelector('.font-size-dropdown');
+      if (dropdown) {
+        dropdown.classList.add('show');
+        this.updateDropdown();
       }
-    });
-    
-    return dropdown;
-  }
+    },
 
-  function showFontSizeDropdown() {
-    const dropdown = document.querySelector('.font-size-dropdown');
-    if (dropdown) {
-      dropdown.classList.add('show');
-      updateFontSizeDropdown();
+    hideDropdown() {
+      const dropdown = document.querySelector('.font-size-dropdown');
+      if (dropdown) dropdown.classList.remove('show');
+    },
+
+    cycle() {
+      const currentIndex = CFG.fontSizes.indexOf(state.fontSize);
+      const nextIndex = (currentIndex + 1) % CFG.fontSizes.length;
+      this.update(CFG.fontSizes[nextIndex]);
     }
-  }
-
-  function hideFontSizeDropdown() {
-    const dropdown = document.querySelector('.font-size-dropdown');
-    if (dropdown) {
-      dropdown.classList.remove('show');
-    }
-  }
-
-  function cycleFontSize() {
-    const currentIndex = CFG.fontSizes.indexOf(state.fontSize);
-    const nextIndex = (currentIndex + 1) % CFG.fontSizes.length;
-    updateFontSize(CFG.fontSizes[nextIndex]);
-  }
+  };
 
   // Channel ordering management
   function saveChannelOrder() {
@@ -896,7 +935,7 @@
   }
 
   function mentionUser(userName, isPrivate = false) {
-    const input = document.getElementById(CFG.localInputId);
+    const input = DOM.localInput;
     if (!input) return;
     
     // 清理用户名，去除角色标记后缀
@@ -1112,25 +1151,167 @@
     return ensureChannel(selected ? getTabName(selected) : 'default');
   }
 
+  function formatTimestamp(rawTimestamp) {
+    if (!rawTimestamp) return '';
+    
+    console.log('[MW IDE Chat] formatTimestamp input:', JSON.stringify(rawTimestamp));
+    
+    // Try to parse the timestamp and reformat it for better alignment
+    try {
+      // Handle different timestamp formats
+      let timeStr = rawTimestamp.replace(/[\[\]]/g, ''); // Remove brackets
+      console.log('[MW IDE Chat] timeStr after bracket removal:', JSON.stringify(timeStr));
+      
+      // Check for date + time format: "12/29 5:16:02 PM"
+      const dateTimeMatch = timeStr.match(/^(\d{1,2}\/\d{1,2})\s+(\d{1,2}):(\d{2}):(\d{2})\s*(AM|PM)$/i);
+      if (dateTimeMatch) {
+        console.log('[MW IDE Chat] Date + time format matched:', dateTimeMatch);
+        const date = dateTimeMatch[1];
+        let hours = parseInt(dateTimeMatch[2]);
+        const minutes = dateTimeMatch[3];
+        const seconds = dateTimeMatch[4];
+        const ampm = dateTimeMatch[5].toUpperCase();
+        
+        // Convert to 24-hour format
+        if (ampm === 'PM' && hours !== 12) {
+          hours += 12;
+        } else if (ampm === 'AM' && hours === 12) {
+          hours = 0;
+        }
+        
+        const result = `[${date} ${hours.toString().padStart(2, '0')}:${minutes}:${seconds}]`;
+        console.log('[MW IDE Chat] Converted date + time to 24-hour:', result);
+        return result;
+      }
+      
+      // Check for date + time format without seconds: "12/29 5:16 PM"
+      const dateTimeNoSecondsMatch = timeStr.match(/^(\d{1,2}\/\d{1,2})\s+(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+      if (dateTimeNoSecondsMatch) {
+        console.log('[MW IDE Chat] Date + time format (no seconds) matched:', dateTimeNoSecondsMatch);
+        const date = dateTimeNoSecondsMatch[1];
+        let hours = parseInt(dateTimeNoSecondsMatch[2]);
+        const minutes = dateTimeNoSecondsMatch[3];
+        const ampm = dateTimeNoSecondsMatch[4].toUpperCase();
+        
+        // Convert to 24-hour format
+        if (ampm === 'PM' && hours !== 12) {
+          hours += 12;
+        } else if (ampm === 'AM' && hours === 12) {
+          hours = 0;
+        }
+        
+        const result = `[${date} ${hours.toString().padStart(2, '0')}:${minutes}:00]`;
+        console.log('[MW IDE Chat] Converted date + time (no seconds) to 24-hour:', result);
+        return result;
+      }
+      
+      // If it's already in 24-hour format (HH:MM:SS), keep it
+      if (/^\d{1,2}:\d{2}:\d{2}$/.test(timeStr)) {
+        const parts = timeStr.split(':');
+        const hours = parts[0].padStart(2, '0');
+        const result = `[${hours}:${parts[1]}:${parts[2]}]`;
+        console.log('[MW IDE Chat] 24-hour format detected, result:', result);
+        return result;
+      }
+      
+      // If it's 12-hour format, convert to 24-hour for better alignment
+      const match = timeStr.match(/^(\d{1,2}):(\d{2}):(\d{2})\s*(AM|PM)$/i);
+      if (match) {
+        console.log('[MW IDE Chat] 12-hour format with seconds matched:', match);
+        let hours = parseInt(match[1]);
+        const minutes = match[2];
+        const seconds = match[3];
+        const ampm = match[4].toUpperCase();
+        
+        // Convert to 24-hour format
+        if (ampm === 'PM' && hours !== 12) {
+          hours += 12;
+        } else if (ampm === 'AM' && hours === 12) {
+          hours = 0;
+        }
+        
+        const result = `[${hours.toString().padStart(2, '0')}:${minutes}:${seconds}]`;
+        console.log('[MW IDE Chat] Converted to 24-hour:', result);
+        return result;
+      }
+      
+      // Try to match format without seconds
+      const matchNoSeconds = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+      if (matchNoSeconds) {
+        console.log('[MW IDE Chat] 12-hour format without seconds matched:', matchNoSeconds);
+        let hours = parseInt(matchNoSeconds[1]);
+        const minutes = matchNoSeconds[2];
+        const ampm = matchNoSeconds[3].toUpperCase();
+        
+        // Convert to 24-hour format
+        if (ampm === 'PM' && hours !== 12) {
+          hours += 12;
+        } else if (ampm === 'AM' && hours === 12) {
+          hours = 0;
+        }
+        
+        const result = `[${hours.toString().padStart(2, '0')}:${minutes}:00]`;
+        console.log('[MW IDE Chat] Converted to 24-hour (no seconds):', result);
+        return result;
+      }
+      
+      console.log('[MW IDE Chat] No pattern matched, returning original');
+      // Fallback: return original timestamp
+      return rawTimestamp;
+    } catch (e) {
+      console.warn('[MW IDE Chat] Error formatting timestamp:', rawTimestamp, e);
+      // If parsing fails, return original
+      return rawTimestamp;
+    }
+  }
+
   /* ======= Message ingestion ======= */
   function parseMessage(node) {
-    const ts = node.querySelector('[class*="timestamp"]')?.textContent?.trim() || '';
+    const rawTs = node.querySelector('[class*="timestamp"]')?.textContent?.trim() || '';
+    // Debug: log ALL timestamps to understand the format
+    if (rawTs) {
+      console.log('[MW IDE Chat] Raw timestamp:', JSON.stringify(rawTs), 'Length:', rawTs.length);
+    }
+    const ts = formatTimestamp(rawTs);
+    if (rawTs && ts !== rawTs) {
+      console.log('[MW IDE Chat] Formatted timestamp:', JSON.stringify(rawTs), '->', JSON.stringify(ts));
+    }
     const isSystem = (node.className || '').includes('system');
     const name = node.querySelector('[class*="name"]')?.textContent?.trim() || '';
 
     const clone = node.cloneNode(true);
     clone.querySelector('[class*="timestamp"]')?.remove();
     clone.querySelector('[class*="name"]')?.remove();
-    let text = clone.textContent.trim().replace(/\s+/g, ' ');
+    
+    // Check if there are game links in the message
+    const hasGameLinks = clone.querySelector('.ChatMessage_linkContainer__18Kv3');
+    
+    let text, htmlContent = null;
+    
+    if (hasGameLinks) {
+      // Preserve HTML structure for game links
+      htmlContent = clone.innerHTML.trim();
+      // Also get text content for fallback
+      text = clone.textContent.trim().replace(/\s+/g, ' ');
+    } else {
+      // No game links, just get text content
+      text = clone.textContent.trim().replace(/\s+/g, ' ');
+    }
     
     // 移除消息开头的冒号和空格（通常在用户名后面）
     if (text.startsWith(': ')) {
       text = text.substring(2);
+      if (htmlContent) {
+        htmlContent = htmlContent.replace(/^:\s*/, '');
+      }
     } else if (text.startsWith(':')) {
       text = text.substring(1);
+      if (htmlContent) {
+        htmlContent = htmlContent.replace(/^:/, '');
+      }
     }
 
-    return { ts, name, text, isSystem };
+    return { ts, name, text, htmlContent, isSystem };
   }
 
   function signature(m) {
@@ -1138,13 +1319,22 @@
   }
 
   function formatLine(m) {
+    // Determine the message content to display
+    let messageContent;
+    if (m.htmlContent) {
+      // Process HTML content with game links (keep original styling)
+      messageContent = highlightMentions(m.htmlContent);
+    } else {
+      // Regular text message
+      messageContent = highlightMentions(esc(m.text));
+    }
+    
     if (m.isSystem || !m.name) {
-      return `<div class="mw-ide-line mw-ide-sys"><div class="mw-ide-header"><span class="mw-ide-ts">${esc(m.ts)}</span><span class="mw-ide-name">System</span></div><span class="mw-ide-msg">${highlightMentions(esc(m.text))}</span></div>`;
+      return `<div class="mw-ide-line mw-ide-sys"><div class="mw-ide-header"><span class="mw-ide-ts">${esc(m.ts)}</span><span class="mw-ide-name">System</span></div><span class="mw-ide-msg">${messageContent}</span></div>`;
     }
     
     const colorHash = getUserColorHash(m.name);
-    return `<div class="mw-ide-line"><div class="mw-ide-header"><span class="mw-ide-ts">${esc(m.ts)}</span><span class="mw-ide-name clickable-username" data-user-hash="${colorHash}" data-username="${esc(m.name)}">${esc(m.name)}</span></div><span class="mw-ide-msg">${highlightMentions(esc(m.text))}</span></div>`;
-
+    return `<div class="mw-ide-line"><div class="mw-ide-header"><span class="mw-ide-ts">${esc(m.ts)}</span><span class="mw-ide-name clickable-username" data-user-hash="${colorHash}" data-username="${esc(m.name)}">${esc(m.name)}</span></div><span class="mw-ide-msg">${messageContent}</span></div>`;
   }
 
   function storeLine(channel, m) {
@@ -1560,9 +1750,9 @@
     // Add font size dropdown to the font size button
     const fontBtn = document.querySelector('[data-action="font-size"]');
     if (fontBtn) {
-      fontBtn.appendChild(createFontSizeDropdown());
+      fontBtn.appendChild(FontManager.createDropdown());
       // 确保按钮文本是最新的
-      updateFontSizeButton();
+      FontManager.updateButton();
     }
 
     $('#' + CFG.toggleBtnId).addEventListener('click', () => toggleOverlay());
@@ -1580,9 +1770,9 @@
         e.stopPropagation();
         const dropdown = document.querySelector('.font-size-dropdown');
         if (dropdown && dropdown.classList.contains('show')) {
-          hideFontSizeDropdown();
+          FontManager.hideDropdown();
         } else {
-          showFontSizeDropdown();
+          FontManager.showDropdown();
         }
       }
     });
@@ -1590,7 +1780,7 @@
     // Close dropdown when clicking outside
     document.addEventListener('click', (e) => {
       if (!e.target.closest('[data-action="font-size"]')) {
-        hideFontSizeDropdown();
+        FontManager.hideDropdown();
       }
     });
 
@@ -1765,7 +1955,7 @@
 
   async function main() {
     // Initialize font size
-    updateFontSize(state.fontSize);
+    FontManager.update(state.fontSize);
     
     createUI();
     setToggleText();
@@ -1795,7 +1985,7 @@
       if (state.enabled) renderSidebar();
     }).observe(chatPanel, { subtree: true, childList: true, attributes: true });
 
-    console.log('[MW IDE Chat] v0.14.3 loaded (cross-platform hotkeys: macOS uses Cmd+I, Windows/Linux uses Alt+I)');
+    console.log('[MW IDE Chat] v0.14.14 loaded (message alignment: added minimum width for usernames to align message content)');
   }
 
   main();

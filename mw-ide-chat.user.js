@@ -2,9 +2,9 @@
 // @name         MilkyWayIdle - Fullscreen IDE Chat
 // @name:zh-CN   MilkyWayIdle - 全屏 IDE 聊天
 // @namespace    https://github.com/ailec0623/MilkyWayIdle-FullscreenIDEChat
-// @version      0.11.0
-// @description  Fullscreen IDE-style chat for MilkyWayIdle: channel tree, aligned log view, unread tracking, pause-follow mode, local input (no draft loss), adjustable font size, drag-to-reorder channels.
-// @description:zh-CN  为 MilkyWayIdle 提供全屏 IDE 风格聊天界面：频道列表、日志对齐、未读提示、暂停跟随、本地输入（不丢草稿）、可调节字体大小、拖拽排序频道。
+// @version      0.14.2
+// @description  Fullscreen IDE-style chat for MilkyWayIdle: channel tree, aligned log view, unread tracking, pause-follow mode, local input (no draft loss), adjustable font size, drag-to-reorder channels, improved message layout, click username to mention, double-click message to copy.
+// @description:zh-CN  为 MilkyWayIdle 提供全屏 IDE 风格聊天界面：频道列表、日志对齐、未读提示、暂停跟随、本地输入（不丢草稿）、可调节字体大小、拖拽排序频道、改进消息布局、点击用户名快速@、双击消息复制。
 // @author       400BadRequest
 // @copyright    2025, 400BadRequest
 // @license      MIT
@@ -374,21 +374,56 @@
 
     .mw-ide-line{
       display: grid;
-      grid-template-columns: minmax(0, 18ch) 100px 1fr; /* 时间 | 名字 | 内容 */
-      column-gap: 1px;
+      grid-template-columns: minmax(0, 28ch) 1fr; /* 时间+用户名 | 内容 */
+      column-gap: 12px;
       align-items: start;
       padding: calc(var(--mw-ide-font-size) * 0.08) 0; /* 动态调整行间距 */
+      cursor: pointer;
+      border-radius: 4px;
+      margin: 1px 0;
+      transition: background-color 0.2s ease;
+    }
+    .mw-ide-line:hover{
+      background: rgba(255,255,255,.03);
     }
 
     .mw-ide-ts{
-      white-space: nowrap;
+      opacity: .45;
+      color: #8a9199;
     }
 
     .mw-ide-name{
+      opacity: .92;
+      color: #7dd3fc;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: 4px;
+      padding: 1px 4px;
+      margin: -1px -4px;
+      transition: background-color 0.2s ease;
+      position: relative;
+    }
+    .mw-ide-name:hover{
+      background: rgba(255,255,255,.08);
+    }
+
+    /* 为不同用户提供不同的颜色 */
+    .mw-ide-name[data-user-hash="0"] { color: #7dd3fc; }
+    .mw-ide-name[data-user-hash="1"] { color: #a78bfa; }
+    .mw-ide-name[data-user-hash="2"] { color: #fb7185; }
+    .mw-ide-name[data-user-hash="3"] { color: #fbbf24; }
+    .mw-ide-name[data-user-hash="4"] { color: #34d399; }
+    .mw-ide-name[data-user-hash="5"] { color: #60a5fa; }
+    .mw-ide-name[data-user-hash="6"] { color: #f472b6; }
+    .mw-ide-name[data-user-hash="7"] { color: #a3a3a3; }
+
+    .mw-ide-header{
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      opacity: .92;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
     }
 
     .mw-ide-msg{
@@ -396,9 +431,13 @@
       word-break: break-word;
     }
 
-    /* 系统消息：名字列空出来更清爽 */
+    /* 系统消息：保持两列布局 */
     .mw-ide-line.mw-ide-sys{
-      grid-template-columns: 76px 1fr;
+      grid-template-columns: minmax(0, 28ch) 1fr;
+    }
+    .mw-ide-line.mw-ide-sys .mw-ide-name{
+      color: #f59e0b;
+      opacity: .8;
     }
 
     /* @mention highlight */
@@ -450,6 +489,37 @@
       background: rgba(11,14,20,.92);
     }
 
+    /* User mention dropdown */
+    .user-mention-dropdown {
+      position: absolute;
+      background: #0b0e14;
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 8px;
+      padding: 4px 0;
+      min-width: 120px;
+      z-index: 1000001;
+      display: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,.3);
+    }
+    .user-mention-dropdown.show {
+      display: block;
+    }
+    .user-mention-option {
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 12px;
+      color: #cfd6e6;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .user-mention-option:hover {
+      background: rgba(255,255,255,.06);
+    }
+    .user-mention-option .icon {
+      opacity: .7;
+    }
+
   `);
 
   const $ = (s, r = document) => r.querySelector(s);
@@ -461,6 +531,18 @@
     .replaceAll("'", '&#039;');
 
   function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  // Simple hash function for user name colors
+  function getUserColorHash(name) {
+    if (!name) return 0;
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      const char = name.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return Math.abs(hash) % 8; // 8 different colors
+  }
 
   // Settings management
   function loadSettings() {
@@ -744,6 +826,116 @@
     saveChannelOrder();
   }
 
+  // User mention functionality
+  let currentMentionDropdown = null;
+
+  function createUserMentionDropdown(userName, clickEvent) {
+    // 移除现有的下拉菜单
+    hideUserMentionDropdown();
+    
+    // 清理用户名用于显示
+    const cleanUserName = cleanUserNameForMention(userName);
+    const displayName = cleanUserName !== userName ? `${cleanUserName} (${userName})` : userName;
+    
+    const dropdown = document.createElement('div');
+    dropdown.className = 'user-mention-dropdown show';
+    dropdown.innerHTML = `
+      <div class="user-mention-option" data-action="mention">
+        <span class="icon">@</span>
+        <span>Mention ${esc(displayName)}</span>
+      </div>
+      <div class="user-mention-option" data-action="private">
+        <span class="icon">💬</span>
+        <span>Private message</span>
+      </div>
+    `;
+    
+    // 定位下拉菜单
+    const rect = clickEvent.target.getBoundingClientRect();
+    const overlay = document.getElementById(CFG.overlayId);
+    const overlayRect = overlay.getBoundingClientRect();
+    
+    // 相对于主界面的位置
+    dropdown.style.left = (rect.left - overlayRect.left) + 'px';
+    dropdown.style.top = (rect.bottom - overlayRect.top + 4) + 'px';
+    
+    // 添加点击事件
+    dropdown.addEventListener('click', (e) => {
+      const option = e.target.closest('.user-mention-option');
+      if (!option) return;
+      
+      const action = option.dataset.action;
+      if (action === 'mention') {
+        mentionUser(userName);
+      } else if (action === 'private') {
+        mentionUser(userName, true);
+      }
+      
+      hideUserMentionDropdown();
+    });
+    
+    // 添加到主界面而不是body
+    overlay.appendChild(dropdown);
+    currentMentionDropdown = dropdown;
+    
+    // 点击外部关闭
+    setTimeout(() => {
+      document.addEventListener('click', hideUserMentionDropdown, { once: true });
+    }, 0);
+  }
+
+  function hideUserMentionDropdown() {
+    if (currentMentionDropdown) {
+      currentMentionDropdown.remove();
+      currentMentionDropdown = null;
+    }
+  }
+
+  function mentionUser(userName, isPrivate = false) {
+    const input = document.getElementById(CFG.localInputId);
+    if (!input) return;
+    
+    // 清理用户名，去除角色标记后缀
+    const cleanUserName = cleanUserNameForMention(userName);
+    
+    const currentValue = input.value;
+    const prefix = isPrivate ? '/w ' : '@';
+    const mentionText = `${prefix}${cleanUserName} `;
+    
+    // 如果输入框为空或者以空格结尾，直接添加
+    if (!currentValue || currentValue.endsWith(' ')) {
+      input.value = currentValue + mentionText;
+    } else {
+      // 否则先添加空格再添加提及
+      input.value = currentValue + ' ' + mentionText;
+    }
+    
+    // 聚焦到输入框并将光标移到末尾
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+    
+    // 触发input事件以确保任何监听器都能收到通知
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  // 清理用户名，去除角色标记后缀
+  function cleanUserNameForMention(userName) {
+    if (!userName) return userName;
+    
+    // 去除角色标记后缀，支持以下格式：
+    // [GM], [ADMIN], [MOD], [VIP], [STAFF] 等大写字母组合
+    // [*], [+], [~], [&], [@], [%] 等单个符号
+    // [~&], [*+] 等多个符号组合
+    // 示例：
+    // "Alice[GM]" -> "Alice"
+    // "Bob [ADMIN]" -> "Bob"  
+    // "Charlie[MOD]" -> "Charlie"
+    // "Dave[*]" -> "Dave"
+    // "Eve[~&]" -> "Eve"
+    // "Frank" -> "Frank" (无变化)
+    return userName.replace(/\s*\[([A-Z]+|[*+~&@%!#$^-]+)\]\s*$/, '').trim();
+  }
+
   function resetChannelOrder() {
     state.channelOrder = [];
     saveChannelOrder();
@@ -925,7 +1117,14 @@
     const clone = node.cloneNode(true);
     clone.querySelector('[class*="timestamp"]')?.remove();
     clone.querySelector('[class*="name"]')?.remove();
-    const text = clone.textContent.trim().replace(/\s+/g, ' ');
+    let text = clone.textContent.trim().replace(/\s+/g, ' ');
+    
+    // 移除消息开头的冒号和空格（通常在用户名后面）
+    if (text.startsWith(': ')) {
+      text = text.substring(2);
+    } else if (text.startsWith(':')) {
+      text = text.substring(1);
+    }
 
     return { ts, name, text, isSystem };
   }
@@ -936,10 +1135,11 @@
 
   function formatLine(m) {
     if (m.isSystem || !m.name) {
-      return `<div class="mw-ide-line"><span class="mw-ide-ts">${esc(m.ts)}</span><span class="mw-ide-name">System</span><span class="mw-ide-msg">${highlightMentions(esc(m.text))}</span></div>`;
+      return `<div class="mw-ide-line mw-ide-sys"><div class="mw-ide-header"><span class="mw-ide-ts">${esc(m.ts)}</span><span class="mw-ide-name">System</span></div><span class="mw-ide-msg">${highlightMentions(esc(m.text))}</span></div>`;
     }
-    console.log("TEST| " + m.text);
-    return `<div class="mw-ide-line"><span class="mw-ide-ts">${esc(m.ts)}</span><span class="mw-ide-name">${esc(m.name)}</span><span class="mw-ide-msg">${highlightMentions(esc(m.text))}</span></div>`;
+    
+    const colorHash = getUserColorHash(m.name);
+    return `<div class="mw-ide-line"><div class="mw-ide-header"><span class="mw-ide-ts">${esc(m.ts)}</span><span class="mw-ide-name clickable-username" data-user-hash="${colorHash}" data-username="${esc(m.name)}">${esc(m.name)}</span></div><span class="mw-ide-msg">${highlightMentions(esc(m.text))}</span></div>`;
 
   }
 
@@ -1037,6 +1237,11 @@
     body.appendChild(frag);
     state.renderedCount.set(ch, store.lines.length);
 
+    // 确保用户名点击事件已绑定
+    bindUsernameClickEvents(body);
+    // 确保消息双击事件已绑定
+    bindMessageDoubleClickEvents(body);
+
     if (CFG.autoScroll && state.atBottom && !state.isPaused) {
       body.scrollTop = body.scrollHeight;
     }
@@ -1051,7 +1256,106 @@
     body.innerHTML = store?.lines.join('') || '';
     state.renderedCount.set(ch, store?.lines.length || 0);
 
+    // 确保用户名点击事件已绑定
+    bindUsernameClickEvents(body);
+    // 确保消息双击事件已绑定
+    bindMessageDoubleClickEvents(body);
+
     if (CFG.autoScroll) body.scrollTop = body.scrollHeight;
+  }
+
+  // 绑定用户名点击事件
+  function bindUsernameClickEvents(body) {
+    if (!body || body.__mwUsernameBound) return;
+    
+    body.__mwUsernameBound = true;
+    body.addEventListener('click', (e) => {
+      const usernameEl = e.target.closest('.clickable-username');
+      if (usernameEl) {
+        e.preventDefault();
+        e.stopPropagation();
+        const userName = usernameEl.dataset.username;
+        if (userName && userName !== 'System') {
+          createUserMentionDropdown(userName, e);
+        }
+      }
+    });
+  }
+
+  // 绑定消息双击事件
+  function bindMessageDoubleClickEvents(body) {
+    if (!body || body.__mwMessageDblClickBound) return;
+    
+    body.__mwMessageDblClickBound = true;
+    body.addEventListener('dblclick', (e) => {
+      const messageEl = e.target.closest('.mw-ide-line');
+      if (messageEl) {
+        const msgContentEl = messageEl.querySelector('.mw-ide-msg');
+        if (msgContentEl) {
+          e.preventDefault();
+          e.stopPropagation();
+          copyMessageToInput(msgContentEl.textContent);
+        }
+      }
+    });
+  }
+
+  function copyMessageToInput(messageText) {
+    const input = document.getElementById(CFG.localInputId);
+    if (!input || !messageText) return;
+    
+    const trimmedText = messageText.trim();
+    if (!trimmedText) return;
+    
+    // 将消息内容设置到输入框
+    input.value = trimmedText;
+    
+    // 聚焦到输入框并将光标移到末尾
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+    
+    // 触发input事件以确保任何监听器都能收到通知
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    
+    // 显示一个简短的视觉反馈
+    showCopyFeedback();
+  }
+
+  function showCopyFeedback() {
+    // 创建一个临时的反馈提示
+    const feedback = document.createElement('div');
+    feedback.textContent = 'Message copied to input';
+    feedback.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(120,200,255,.9);
+      color: #0f111a;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "JetBrains Mono", monospace;
+      z-index: 1000002;
+      pointer-events: none;
+      opacity: 1;
+      transition: opacity 0.3s ease;
+    `;
+    
+    const overlay = document.getElementById(CFG.overlayId);
+    if (overlay) {
+      overlay.appendChild(feedback);
+      
+      // 1.5秒后淡出并移除
+      setTimeout(() => {
+        feedback.style.opacity = '0';
+        setTimeout(() => {
+          if (feedback.parentNode) {
+            feedback.parentNode.removeChild(feedback);
+          }
+        }, 300);
+      }, 1500);
+    }
   }
 
   /* ======= Switching ======= */
@@ -1432,6 +1736,7 @@
         nb.addEventListener('click', () => jumpToBottomAndResume());
       }
 
+      // 用户名点击事件现在在 bindUsernameClickEvents 中处理
 
       // focus local input
       setTimeout(() => $('#' + CFG.localInputId)?.focus(), 0);
@@ -1481,7 +1786,7 @@
       if (state.enabled) renderSidebar();
     }).observe(chatPanel, { subtree: true, childList: true, attributes: true });
 
-    console.log('[MW IDE Chat] v0.11.0 loaded (local input + incremental rendering + adjustable font size + drag-to-reorder channels)');
+    console.log('[MW IDE Chat] v0.14.2 loaded (improved role suffix cleaning - supports [GM], [ADMIN], etc.)');
   }
 
   main();

@@ -2,9 +2,9 @@
 // @name         MilkyWayIdle - Fullscreen IDE Chat
 // @name:zh-CN   MilkyWayIdle - 全屏 IDE 聊天
 // @namespace    https://github.com/ailec0623/MilkyWayIdle-FullscreenIDEChat
-// @version      0.14.2
-// @description  Fullscreen IDE-style chat for MilkyWayIdle: channel tree, aligned log view, unread tracking, pause-follow mode, local input (no draft loss), adjustable font size, drag-to-reorder channels, improved message layout, click username to mention, double-click message to copy.
-// @description:zh-CN  为 MilkyWayIdle 提供全屏 IDE 风格聊天界面：频道列表、日志对齐、未读提示、暂停跟随、本地输入（不丢草稿）、可调节字体大小、拖拽排序频道、改进消息布局、点击用户名快速@、双击消息复制。
+// @version      0.14.3
+// @description  Fullscreen IDE-style chat for MilkyWayIdle: channel tree, aligned log view, unread tracking, pause-follow mode, local input (no draft loss), adjustable font size, drag-to-reorder channels, improved message layout, click username to mention, double-click message to copy, cross-platform hotkeys.
+// @description:zh-CN  为 MilkyWayIdle 提供全屏 IDE 风格聊天界面：频道列表、日志对齐、未读提示、暂停跟随、本地输入（不丢草稿）、可调节字体大小、拖拽排序频道、改进消息布局、点击用户名快速@、双击消息复制、跨平台快捷键。
 // @author       400BadRequest
 // @copyright    2025, 400BadRequest
 // @license      MIT
@@ -27,6 +27,10 @@
 
 (() => {
   'use strict';
+
+  // Platform detection for hotkeys
+  const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform) || /Mac/.test(navigator.userAgent);
+  const hotkeyText = isMac ? 'Cmd+I' : 'Alt+I';
 
   const CFG = {
     overlayId: 'mw-ide-overlay',
@@ -52,7 +56,7 @@
     maxLinesPerChannel: 3000,
     autoScroll: true,
 
-    hotkey: { altKey: true, key: 'i' },
+    hotkey: isMac ? { metaKey: true, key: 'i' } : { altKey: true, key: 'i' },
 
     waitPanelVisibleTimeoutMs: 2500,
     waitPollMs: 30,
@@ -1517,7 +1521,7 @@
     if ($('#' + CFG.overlayId)) return;
 
     document.body.insertAdjacentHTML('beforeend', `
-      <div id="${CFG.toggleBtnId}">IDE Chat: OFF (Alt+I)</div>
+      <div id="${CFG.toggleBtnId}">IDE Chat: OFF (${hotkeyText})</div>
       <div id="${CFG.overlayId}">
         <div id="${CFG.topbarId}">
           <div class="title">MilkyWayIdle • IDE Chat View</div>
@@ -1619,7 +1623,7 @@
 
   function setToggleText() {
     const b = $('#' + CFG.toggleBtnId);
-    if (b) b.textContent = `IDE Chat: ${state.enabled ? 'ON' : 'OFF'} (Alt+I)`;
+    if (b) b.textContent = `IDE Chat: ${state.enabled ? 'ON' : 'OFF'} (${hotkeyText})`;
   }
 
   function renderSidebar() {
@@ -1767,7 +1771,12 @@
     setToggleText();
 
     window.addEventListener('keydown', (e) => {
-      if (e.altKey && (e.key || '').toLowerCase() === 'i') {
+      // Check for the appropriate key combination based on platform
+      const isHotkeyPressed = isMac 
+        ? (e.metaKey && !e.altKey && !e.ctrlKey && (e.key || '').toLowerCase() === 'i')
+        : (e.altKey && !e.metaKey && !e.ctrlKey && (e.key || '').toLowerCase() === 'i');
+      
+      if (isHotkeyPressed) {
         e.preventDefault();
         toggleOverlay();
       }
@@ -1786,7 +1795,7 @@
       if (state.enabled) renderSidebar();
     }).observe(chatPanel, { subtree: true, childList: true, attributes: true });
 
-    console.log('[MW IDE Chat] v0.14.2 loaded (improved role suffix cleaning - supports [GM], [ADMIN], etc.)');
+    console.log('[MW IDE Chat] v0.14.3 loaded (cross-platform hotkeys: macOS uses Cmd+I, Windows/Linux uses Alt+I)');
   }
 
   main();

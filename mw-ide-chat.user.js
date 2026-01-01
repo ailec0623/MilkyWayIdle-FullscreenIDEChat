@@ -1,15 +1,29 @@
 // ==UserScript==
-// @name         MilkyWayIdle - Fullscreen IDE Chat (摸牛助手)
-// @namespace    https://www.milkywayidle.com/
+// @name         MilkyWayIdle - Fullscreen IDE Chat
+// @name:zh-CN   MilkyWayIdle - 全屏 IDE 聊天
+// @namespace    https://github.com/ailec0623/MilkyWayIdle-FullscreenIDEChat
 // @version      0.9.0
-// @description  IDE layout: left channel list, right content, fixed bottom input. Overlay uses its own textarea to avoid React remount wiping drafts. Incremental message rendering.
+// @description  Fullscreen IDE-style chat for MilkyWayIdle: channel tree, aligned log view, unread tracking, pause-follow mode, local input (no draft loss).
+// @description:zh-CN  为 MilkyWayIdle 提供全屏 IDE 风格聊天界面：频道列表、日志对齐、未读提示、暂停跟随、本地输入（不丢草稿）。
+// @author       400BadRequest
+// @copyright    2025, 400BadRequest
+// @license      MIT
+//
+// @homepageURL  https://github.com/ailec0623/MilkyWayIdle-FullscreenIDEChat
+// @supportURL   https://github.com/ailec0623/MilkyWayIdle-FullscreenIDEChat/issues
+//
+// @updateURL    https://raw.githubusercontent.com/ailec0623/MilkyWayIdle-FullscreenIDEChat/main/mw-ide-chat.user.js
+// @downloadURL  https://raw.githubusercontent.com/ailec0623/MilkyWayIdle-FullscreenIDEChat/main/mw-ide-chat.user.js
+//
 // @match        https://milkywayidle.com/*
 // @match        https://www.milkywayidle.com/*
 // @match        https://milkywayidlecn.com/*
 // @match        https://www.milkywayidlecn.com/*
 // @run-at       document-idle
+//
 // @grant        GM_addStyle
 // ==/UserScript==
+
 
 (() => {
   'use strict';

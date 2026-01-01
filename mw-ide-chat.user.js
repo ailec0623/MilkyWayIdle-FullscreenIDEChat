@@ -2,9 +2,9 @@
 // @name         MilkyWayIdle - Fullscreen IDE Chat
 // @name:zh-CN   MilkyWayIdle - 全屏 IDE 聊天
 // @namespace    https://github.com/ailec0623/MilkyWayIdle-FullscreenIDEChat
-// @version      0.16.1
-// @description  Fullscreen IDE-style chat for MilkyWayIdle: channel tree, aligned log view, unread tracking, pause-follow mode, local input (no draft loss), adjustable font size, drag-to-reorder channels, improved message layout, click username to mention, double-click message to copy, cross-platform hotkeys, configurable game link highlighting, configurable auto image display, paste image upload to tupian.li.
-// @description:zh-CN  为 MilkyWayIdle 提供全屏 IDE 风格聊天界面：频道列表、日志对齐、未读提示、暂停跟随、本地输入（不丢草稿）、可调节字体大小、拖拽排序频道、改进消息布局、点击用户名快速@、双击消息复制、跨平台快捷键、可配置游戏链接高亮、可配置自动图片显示、粘贴图片上传到图床。
+// @version      0.18.0
+// @description  Fullscreen IDE-style chat for MilkyWayIdle: channel tree, aligned log view, unread tracking, pause-follow mode, local input (no draft loss), adjustable font size, drag-to-reorder channels, improved message layout, click username to mention, double-click message to copy, cross-platform hotkeys, configurable game link highlighting, configurable auto image display, paste image upload to tupian.li, auto-jump to bottom when sending messages in paused state, fixed image display for chat-img format links.
+// @description:zh-CN  为 MilkyWayIdle 提供全屏 IDE 风格聊天界面：频道列表、日志对齐、未读提示、暂停跟随、本地输入（不丢草稿）、可调节字体大小、拖拽排序频道、改进消息布局、点击用户名快速@、双击消息复制、跨平台快捷键、可配置游戏链接高亮、可配置自动图片显示、粘贴图片上传到图床、暂停状态下发送消息自动跳转到底部、修复chat-img格式链接的图片显示问题。
 // @author       400BadRequest
 // @copyright    2025, 400BadRequest
 // @license      MIT
@@ -646,12 +646,12 @@
 
   // DOM utilities
   const DOM = {
-    get overlay() { return $(CFG.overlayId); },
-    get toggleBtn() { return $(CFG.toggleBtnId); },
-    get body() { return $(CFG.bodyId); },
-    get localInput() { return $(CFG.localInputId); },
-    get sendBtn() { return $(CFG.sendBtnId); },
-    get chanList() { return $(CFG.chanListId); },
+    get overlay() { return $('#' + CFG.overlayId); },
+    get toggleBtn() { return $('#' + CFG.toggleBtnId); },
+    get body() { return $('#' + CFG.bodyId); },
+    get localInput() { return $('#' + CFG.localInputId); },
+    get sendBtn() { return $('#' + CFG.sendBtnId); },
+    get chanList() { return $('#' + CFG.chanListId); },
     get newBar() { return $('#mw-ide-newbar'); },
     get status() { return $('#mw-ide-status'); }
   };
@@ -815,7 +815,7 @@
     // Handle existing <a> tags with tupian.li image links (including truncated display text)
     // Only match actual image paths, not the main domain
     // This regex captures the href attribute and ensures there's a path after tupian.li/
-    const linkRegex = /<a\s+[^>]*href=["'](https?:\/\/tupian\.li\/\w+[^"']*?)["'][^>]*>([^<]*?)<\/a>/gi;
+    const linkRegex = /<a\s+[^>]*href=["'](https?:\/\/tupian\.li\/[^"']*?)["'][^>]*>([^<]*?)<\/a>/gi;
     
     let processedContent = htmlContent.replace(linkRegex, (match, fullUrl, displayText) => {
       // Skip if it's just the main domain (https://tupian.li/ or https://tupian.li)
@@ -835,10 +835,16 @@
     });
     
     // Also handle <a> tags with class="chat-img" format (from other plugins)
-    // Format: <a href="..." class="chat-img"><span>[图片]</span></a>
-    const chatImgRegex = /<a\s+[^>]*href=["'](https?:\/\/tupian\.li\/\w+[^"']*?)["'][^>]*class=["']chat-img["'][^>]*>.*?<\/a>/gi;
+    // This handles any attribute order: class before href or href before class
+    const chatImgRegex = /<a\s+[^>]*class=["'][^"']*chat-img[^"']*["'][^>]*>.*?<\/a>/gi;
     
-    processedContent = processedContent.replace(chatImgRegex, (match, fullUrl) => {
+    processedContent = processedContent.replace(chatImgRegex, (match) => {
+      // Extract href from the matched <a> tag
+      const hrefMatch = match.match(/href=["'](https?:\/\/tupian\.li\/[^"']*?)["']/i);
+      if (!hrefMatch) return match; // No href found, return original
+      
+      const fullUrl = hrefMatch[1];
+      
       // Skip if it's just the main domain
       if (fullUrl.match(/^https?:\/\/tupian\.li\/?$/)) {
         return match; // Return original link unchanged
@@ -857,7 +863,7 @@
     // Also handle plain text tupian.li image links (fallback for cases without <a> tags)
     if (processedContent === htmlContent) {
       // Only match URLs with actual paths, not just the main domain
-      const plainLinkRegex = /(https?:\/\/tupian\.li\/\w+[^\s<>"']*)/gi;
+      const plainLinkRegex = /(https?:\/\/tupian\.li\/[^\s<>"']*)/gi;
       processedContent = processedContent.replace(plainLinkRegex, (match, url) => {
         // Skip if it's just the main domain
         if (url.match(/^https?:\/\/tupian\.li\/?$/)) {
@@ -920,6 +926,8 @@
     state.activeNewWhilePaused = 0;
     showNewBar(false);
     setPaused(false);
+    clearUnread(state.activeChannel);
+    renderSidebar();
   }
 
   // Font size management
@@ -1416,6 +1424,9 @@
     // Check if there are game links in the message
     const hasGameLinks = clone.querySelector('.ChatMessage_linkContainer__18Kv3');
     
+    // Check if there are image links (chat-img class)
+    const hasImageLinks = clone.querySelector('a.chat-img') || clone.querySelector('a[class*="chat-img"]');
+    
     let text, htmlContent = null;
     
     if (hasGameLinks) {
@@ -1427,8 +1438,8 @@
       // No game links, just get text content
       text = clone.textContent.trim().replace(/\s+/g, ' ');
       
-      // Check if there are any <a> tags (like tupian.li links)
-      if (clone.querySelector('a')) {
+      // Check if there are any <a> tags (like tupian.li links) or image links
+      if (clone.querySelector('a') || hasImageLinks) {
         htmlContent = clone.innerHTML.trim();
       }
     }
@@ -1517,7 +1528,8 @@
 
     store.sigSet.add(sig);
     store.sigQueue.push(sig);
-    store.lines.push(formatLine(m));
+    const formattedLine = formatLine(m);
+    store.lines.push(formattedLine);
 
     while (store.lines.length > CFG.maxLinesPerChannel) {
       store.lines.shift();
@@ -1565,7 +1577,10 @@
 
     for (const n of msgNodes) {
       const m = parseMessage(n);
-      if (!m.text) continue;
+      
+      // Allow messages with empty text if they have HTML content (like images)
+      if (!m.text && !m.htmlContent) continue;
+      
       if (storeLine(channelName, m)) {
         changed = true;
         bumpUnreadIfNeeded(channelName);
@@ -1986,6 +2001,15 @@
 
     // clear local input after send
     local.value = '';
+
+    // 如果当前处于 Paused 状态，发送消息后自动跳转到底部
+    if (state.isPaused) {
+      console.log('[DEBUG] User sent message while paused, jumping to bottom');
+      // 使用 setTimeout 确保消息已经被处理并显示
+      setTimeout(() => {
+        jumpToBottomAndResume();
+      }, 100);
+    }
   }
 
   /* ======= UI ======= */
@@ -2236,11 +2260,18 @@
         }, { passive: true });
       }
 
-      // newbar click => jump bottom
-      const nb = document.getElementById('mw-ide-newbar');
-      if (nb && !nb.__mwBound) {
-        nb.__mwBound = true;
-        nb.addEventListener('click', () => jumpToBottomAndResume());
+      // newbar click => jump bottom (使用事件委托)
+      const mainPanel = document.getElementById(CFG.mainId);
+      if (mainPanel && !mainPanel.__mwNewbarBound) {
+        mainPanel.__mwNewbarBound = true;
+        mainPanel.addEventListener('click', (e) => {
+          const newbar = e.target.closest('#mw-ide-newbar');
+          if (newbar) {
+            e.preventDefault();
+            e.stopPropagation();
+            jumpToBottomAndResume();
+          }
+        });
       }
 
       // 用户名点击事件现在在 bindUsernameClickEvents 中处理
@@ -2298,7 +2329,7 @@
       if (state.enabled) renderSidebar();
     }).observe(chatPanel, { subtree: true, childList: true, attributes: true });
 
-    console.log('[MW IDE Chat] v0.16.1 loaded (improved image upload UX with input locking)');
+    console.log('[MW IDE Chat] v0.18.0 loaded (fixed image display for chat-img format links)');
   }
 
   main();

@@ -2,9 +2,9 @@
 // @name         MilkyWayIdle - Fullscreen IDE Chat
 // @name:zh-CN   MilkyWayIdle - 全屏 IDE 聊天
 // @namespace    https://github.com/ailec0623/MilkyWayIdle-FullscreenIDEChat
-// @version      0.9.0
-// @description  Fullscreen IDE-style chat for MilkyWayIdle: channel tree, aligned log view, unread tracking, pause-follow mode, local input (no draft loss).
-// @description:zh-CN  为 MilkyWayIdle 提供全屏 IDE 风格聊天界面：频道列表、日志对齐、未读提示、暂停跟随、本地输入（不丢草稿）。
+// @version      0.10.1
+// @description  Fullscreen IDE-style chat for MilkyWayIdle: channel tree, aligned log view, unread tracking, pause-follow mode, local input (no draft loss), adjustable font size.
+// @description:zh-CN  为 MilkyWayIdle 提供全屏 IDE 风格聊天界面：频道列表、日志对齐、未读提示、暂停跟随、本地输入（不丢草稿）、可调节字体大小。
 // @author       400BadRequest
 // @copyright    2025, 400BadRequest
 // @license      MIT
@@ -56,9 +56,18 @@
 
     waitPanelVisibleTimeoutMs: 2500,
     waitPollMs: 30,
+
+    // font size settings
+    fontSizes: [10, 11, 12, 13, 14, 15, 16, 18, 20],
+    defaultFontSize: 12,
+    storageKey: 'mw-ide-chat-settings',
   };
 
   GM_addStyle(`
+    :root {
+      --mw-ide-font-size: ${getSetting('fontSize', CFG.defaultFontSize)}px;
+    }
+
     #${CFG.toggleBtnId}{
       position: fixed; right: 14px; bottom: 14px; z-index: 999999;
       padding: 8px 10px; border-radius: 10px;
@@ -75,6 +84,7 @@
       background: #0f111a; color: #cfd6e6;
       display: none; flex-direction: column;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "JetBrains Mono", monospace;
+      font-size: var(--mw-ide-font-size);
     }
 
     #${CFG.topbarId}{
@@ -91,8 +101,40 @@
       padding: 6px 10px; border-radius: 8px;
       border: 1px solid rgba(255,255,255,.14);
       background: transparent; color: #cfd6e6; font-size: 12px; cursor: pointer;
+      position: relative;
     }
     #${CFG.topbarId} .btn:hover{ border-color: rgba(255,255,255,.25); }
+
+    /* Font size dropdown */
+    .font-size-dropdown {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      background: #0b0e14;
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 8px;
+      padding: 4px 0;
+      min-width: 80px;
+      z-index: 1000;
+      display: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,.3);
+    }
+    .font-size-dropdown.show {
+      display: block;
+    }
+    .font-size-option {
+      padding: 6px 12px;
+      cursor: pointer;
+      font-size: 12px;
+      color: #cfd6e6;
+    }
+    .font-size-option:hover {
+      background: rgba(255,255,255,.06);
+    }
+    .font-size-option.active {
+      background: rgba(120,200,255,.15);
+      color: #d7eaff;
+    }
 
     #${CFG.layoutId}{
       flex: 1;
@@ -194,13 +236,12 @@
       flex: 1;
       overflow: auto;
       padding: 12px 16px;
-      font-size: 12px;
+      font-size: var(--mw-ide-font-size);
       line-height: 1.55;
       white-space: pre-wrap;
       word-break: break-word;
       min-height: 0;
     }
-    .mw-ide-line{ padding: 1px 0; }
     .mw-ide-ts{ opacity: .65; }
     .mw-ide-name{ opacity: .90; }
     .mw-ide-sys{ opacity: .80; }
@@ -244,7 +285,7 @@
       border: 1px solid rgba(255,255,255,.14);
       outline: none;
 
-      font-size: 13px;
+      font-size: var(--mw-ide-font-size);
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "JetBrains Mono", monospace;
     }
     #${CFG.localInputId}:focus{
@@ -288,6 +329,7 @@
       grid-template-columns: minmax(0, 18ch) 100px 1fr; /* 时间 | 名字 | 内容 */
       column-gap: 1px;
       align-items: start;
+      padding: calc(var(--mw-ide-font-size) * 0.08) 0; /* 动态调整行间距 */
     }
 
     .mw-ide-ts{
@@ -372,6 +414,35 @@
 
   function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+  // Settings management
+  function loadSettings() {
+    try {
+      const stored = localStorage.getItem(CFG.storageKey);
+      return stored ? JSON.parse(stored) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  function saveSettings(settings) {
+    try {
+      localStorage.setItem(CFG.storageKey, JSON.stringify(settings));
+    } catch {
+      // ignore storage errors
+    }
+  }
+
+  function getSetting(key, defaultValue) {
+    const settings = loadSettings();
+    return settings[key] !== undefined ? settings[key] : defaultValue;
+  }
+
+  function setSetting(key, value) {
+    const settings = loadSettings();
+    settings[key] = value;
+    saveSettings(settings);
+  }
+
   const state = {
     enabled: false,
     chatPanel: null,
@@ -399,6 +470,9 @@
     isPaused: false,
     atBottom: true,
     activeNewWhilePaused: 0,
+
+    // font size
+    fontSize: getSetting('fontSize', CFG.defaultFontSize),
   };
   function readSelfIdFromPage() {
     // 1) 先锁定 Header 区域，避免撞到聊天消息里的 CharacterName_name__*
@@ -503,6 +577,81 @@
     state.activeNewWhilePaused = 0;
     showNewBar(false);
     setPaused(false);
+  }
+
+  // Font size management
+  function updateFontSize(newSize) {
+    if (!CFG.fontSizes.includes(newSize)) return;
+    
+    state.fontSize = newSize;
+    setSetting('fontSize', newSize);
+    
+    // Update CSS custom property
+    document.documentElement.style.setProperty('--mw-ide-font-size', newSize + 'px');
+    
+    // Update button text
+    updateFontSizeButton();
+    
+    // Update dropdown active state
+    updateFontSizeDropdown();
+  }
+
+  function updateFontSizeButton() {
+    const btn = document.querySelector('[data-action="font-size"]');
+    if (btn) {
+      const textSpan = btn.querySelector('.btn-text');
+      if (textSpan) {
+        textSpan.textContent = `Font: ${state.fontSize}px`;
+      }
+    }
+  }
+
+  function updateFontSizeDropdown() {
+    const options = document.querySelectorAll('.font-size-option');
+    options.forEach(option => {
+      const size = parseInt(option.dataset.size);
+      option.classList.toggle('active', size === state.fontSize);
+    });
+  }
+
+  function createFontSizeDropdown() {
+    const dropdown = document.createElement('div');
+    dropdown.className = 'font-size-dropdown';
+    dropdown.innerHTML = CFG.fontSizes.map(size => 
+      `<div class="font-size-option" data-size="${size}">${size}px</div>`
+    ).join('');
+    
+    dropdown.addEventListener('click', (e) => {
+      const option = e.target.closest('.font-size-option');
+      if (option) {
+        const size = parseInt(option.dataset.size);
+        updateFontSize(size);
+        hideFontSizeDropdown();
+      }
+    });
+    
+    return dropdown;
+  }
+
+  function showFontSizeDropdown() {
+    const dropdown = document.querySelector('.font-size-dropdown');
+    if (dropdown) {
+      dropdown.classList.add('show');
+      updateFontSizeDropdown();
+    }
+  }
+
+  function hideFontSizeDropdown() {
+    const dropdown = document.querySelector('.font-size-dropdown');
+    if (dropdown) {
+      dropdown.classList.remove('show');
+    }
+  }
+
+  function cycleFontSize() {
+    const currentIndex = CFG.fontSizes.indexOf(state.fontSize);
+    const nextIndex = (currentIndex + 1) % CFG.fontSizes.length;
+    updateFontSize(CFG.fontSizes[nextIndex]);
   }
 
   function ensureChannel(name) {
@@ -877,6 +1026,7 @@
       <div id="${CFG.overlayId}">
         <div id="${CFG.topbarId}">
           <div class="title">MilkyWayIdle • IDE Chat View</div>
+          <button class="btn" data-action="font-size"><span class="btn-text">Font: ${state.fontSize}px</span></button>
           <button class="btn" data-action="toggle-scroll">AutoScroll: ON</button>
           <button class="btn" data-action="exit">Exit</button>
         </div>
@@ -907,6 +1057,14 @@
       </div>
     `);
 
+    // Add font size dropdown to the font size button
+    const fontBtn = document.querySelector('[data-action="font-size"]');
+    if (fontBtn) {
+      fontBtn.appendChild(createFontSizeDropdown());
+      // 确保按钮文本是最新的
+      updateFontSizeButton();
+    }
+
     $('#' + CFG.toggleBtnId).addEventListener('click', () => toggleOverlay());
 
     $('#' + CFG.overlayId).addEventListener('click', (e) => {
@@ -917,6 +1075,22 @@
       if (a === 'toggle-scroll') {
         CFG.autoScroll = !CFG.autoScroll;
         btn.textContent = `AutoScroll: ${CFG.autoScroll ? 'ON' : 'OFF'}`;
+      }
+      if (a === 'font-size') {
+        e.stopPropagation();
+        const dropdown = document.querySelector('.font-size-dropdown');
+        if (dropdown && dropdown.classList.contains('show')) {
+          hideFontSizeDropdown();
+        } else {
+          showFontSizeDropdown();
+        }
+      }
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('[data-action="font-size"]')) {
+        hideFontSizeDropdown();
       }
     });
 
@@ -1060,6 +1234,9 @@
   }
 
   async function main() {
+    // Initialize font size
+    updateFontSize(state.fontSize);
+    
     createUI();
     setToggleText();
 
@@ -1083,7 +1260,7 @@
       if (state.enabled) renderSidebar();
     }).observe(chatPanel, { subtree: true, childList: true, attributes: true });
 
-    console.log('[MW IDE Chat] v0.9.0 loaded (local input + incremental rendering)');
+    console.log('[MW IDE Chat] v0.10.1 loaded (local input + incremental rendering + adjustable font size - fixed dropdown bug)');
   }
 
   main();

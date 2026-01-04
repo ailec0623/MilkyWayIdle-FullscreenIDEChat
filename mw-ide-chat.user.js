@@ -23,6 +23,13 @@
 //
 // @grant        GM_addStyle
 // @grant        GM_xmlhttpRequest
+// @grant        GM_setValue
+// @grant        GM_getValue
+// @require      https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/jquery/3.4.0/jquery.min.js#sha512=Pa4Jto+LuCGBHy2/POQEbTh0reuoiEXQWXGn8S7aRlhcwpVkO8+4uoZVSOqUjdCsE+77oygfu2Tl+7qGHGIWsw==
+// @require      https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/spectrum/1.8.0/spectrum.min.js#sha512=Bx3FZ9S4XKYq5P1Yxfqp36JifotqAAAl5eotNaGWE1zSSLifBZlbKExLh2NKHA4CTlqHap7xdFzo39W+CTKrWQ==
+// @require      https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/localforage/1.10.0/localforage.min.js#sha512=+BMamP0e7wn39JGL8nKAZ3yAQT2dL5oaXWr4ZYlTGkKOaoXM/Yj7c4oy50Ngz5yoUutAG17flueD4F6QpTlPng==
+// @require      https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/echarts/5.3.0/echarts.min.js#sha512=dvHO84j/D1YX7AWkAPC/qwRTfEgWRHhI3n7J5EAqMwm4r426sTkcOs6OmqCtmkg0QXNKtiFa67Tp77JWCRRINg==
+// @require      https://greasyfork.org/scripts/424901-nga-script-resource/code/NGA-Script-Resource.js?version=1268947
 // ==/UserScript==
 
 
@@ -641,6 +648,339 @@
 
   `);
 
+  // Excel Mode CSS Styles
+  GM_addStyle(`
+    /* Excel Interface Styles */
+    .hld__excel-div {
+      display: none;
+      position: absolute;
+      left: 0;
+      right: 0;
+      z-index: 1000001;
+      background: #fff;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      margin: 0;
+      padding: 0;
+    }
+
+    .hld__excel-header {
+      top: 0;
+      border-bottom: 1px solid #bbbbbb;
+      margin: 0;
+      padding: 0;
+    }
+
+    .hld__excel-footer {
+      bottom: 0;
+      border-top: 1px solid #bbbbbb;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      padding: 0 8px;
+      margin: 0;
+    }
+
+    .hld__excel-body {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #fff;
+      overflow: auto;
+      z-index: 1000001;
+      padding: 0;
+      margin: 0;
+      border: none;
+    }
+
+    /* Ensure no gaps between header and body */
+    .hld__excel-div.hld__excel-header + .hld__excel-div.hld__excel-body {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: none;
+    }
+
+    /* Excel Table Styles */
+    .hld__excel-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-size: 11px;
+      background: #fff;
+      margin: 0;
+      padding: 0;
+      border-top: none; /* Remove top border to connect with header */
+    }
+
+    .hld__excel-table td {
+      border: 1px solid #d0d7de;
+      border-top: 1px solid #d0d7de; /* Restore individual cell borders */
+      padding: 4px 8px;
+      text-align: left;
+      vertical-align: middle;
+      width: 64px;
+      min-width: 64px;
+      max-width: 64px;
+      height: 20px;
+      box-sizing: border-box;
+      margin: 0;
+    }
+
+    /* First row cells should connect directly to header */
+    .hld__excel-table tbody tr:first-child td {
+      border-top: none;
+    }
+
+    .hld__excel-table .row-header {
+      background: #f6f8fa;
+      font-weight: normal;
+      text-align: center;
+      color: #24292f;
+      width: 50px;
+      min-width: 50px;
+      position: sticky;
+      left: 0;
+      z-index: 5;
+      border-right: 1px solid #e0e2e4;
+      border-left: none;
+    }
+
+    .hld__excel-table tbody tr:hover {
+      background: #f6f8fa;
+    }
+
+    .hld__excel-table td:hover:not(.row-header) {
+      background: #e6f3ff;
+      cursor: cell;
+    }
+
+    .hld__excel-table td.selected {
+      background: #0078d4;
+      color: white;
+    }
+
+    .hld__excel-table td:focus {
+      outline: 2px solid #0078d4;
+      outline-offset: -2px;
+    }
+
+    /* Tencent Theme Styles */
+    .hld__excel-titlebar {
+      height: 32px;
+      background: #f8f9fa;
+      border-bottom: 1px solid #e0e2e4;
+      display: flex;
+      align-items: center;
+      padding: 0 8px;
+      font-size: 12px;
+      color: #333;
+    }
+
+    .hld__excel-titlebar-title {
+      font-weight: 500;
+      margin-right: 10px;
+    }
+
+    .hld__excel-titlebar-content {
+      display: inline-block;
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+    }
+
+    .hld__excel-icon12 {
+      width: 12px;
+      height: 12px;
+    }
+
+    .hld__excel-icon16 {
+      width: 16px;
+      height: 16px;
+    }
+
+    .hld__excel-icon20 {
+      width: 20px;
+      height: 20px;
+    }
+
+    .hld__excel-icon24 {
+      width: 24px;
+      height: 24px;
+    }
+
+    .hld__excel-toolbar {
+      height: 28px;
+      background: #f4f4f4;
+      border-bottom: 1px solid #e0e2e4;
+      display: flex;
+      align-items: center;
+      padding: 0 8px;
+      font-size: 12px;
+      color: #333;
+    }
+
+    .hld__excel-titlebar-pick {
+      position: relative;
+      display: inline-block;
+    }
+
+    .hld__excel-titlebar-indication {
+      position: absolute;
+      bottom: -2px;
+      left: 2px;
+      right: 2px;
+      height: 2px;
+    }
+
+    .hld__excel-formulabar {
+      height: 25px;
+      background: #fff;
+      border-bottom: 1px solid #e0e2e4;
+      display: flex;
+      align-items: center;
+    }
+
+    .hld__excel-h4 {
+      height: 20px;
+      background: #f8f9fa;
+      border-bottom: 1px solid #e0e2e4;
+      display: flex;
+      font-size: 11px;
+      color: #666;
+    }
+
+    .hld__excel-sub {
+      width: 50px;
+      border-right: 1px solid #e0e2e4;
+      background: #f0f0f0;
+      flex-shrink: 0;
+    }
+
+    .hld__excel-column {
+      min-width: 64px;
+      flex: 0 0 64px;
+      text-align: center;
+      border-right: 1px solid #e0e2e4;
+      line-height: 20px;
+      background: #f8f9fa;
+      box-sizing: border-box;
+    }
+
+    .hld__excel-sheet-tab {
+      display: flex;
+      align-items: center;
+      margin-left: 20px;
+    }
+
+    .hld__excel-sheet-name {
+      display: flex;
+      align-items: center;
+      padding: 4px 8px;
+      background: #fff;
+      border: 1px solid #ccc;
+      border-bottom: none;
+      font-size: 12px;
+    }
+
+    .hld__excel-sheet-underblock {
+      width: 100%;
+      height: 2px;
+      background: #fff;
+      margin-top: -1px;
+    }
+
+    .hld__excel-footer-item {
+      margin: 0 5px;
+      font-size: 12px;
+      color: #666;
+    }
+
+    /* WPS/Office Theme Styles */
+    .hld__excel-title {
+      position: absolute;
+      top: 6px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 12px;
+      color: #333;
+      font-weight: 500;
+    }
+
+    .hld__excel-h1 {
+      height: 30px;
+      background: #f3f5f8;
+      border-bottom: 1px solid #c5cbd6;
+      position: relative;
+    }
+
+    .hld__excel-h2 {
+      height: 102px;
+      background: #f4f4f4;
+      position: relative;
+    }
+
+    .hld__excel-h3 {
+      height: 44px;
+      background: #e8e8e8;
+      box-shadow: inset 0 3px 5px #d9d9d9;
+      position: relative;
+    }
+
+    .hld__excel-img-h1-l1, 
+    .hld__excel-img-h2-l1, 
+    .hld__excel-img-f1-l1 {
+      top: 0;
+      left: 0;
+    }
+
+    .hld__excel-img-h1-r1, 
+    .hld__excel-img-h2-r1, 
+    .hld__excel-img-f1-r1 {
+      top: 0;
+      right: 0;
+    }
+
+    .hld__excel-img-h3-l1 {
+      top: 12px;
+      left: 0;
+    }
+
+    .hld__excel-img-h3-r1 {
+      top: 8px;
+      right: 0;
+    }
+
+    .hld__excel-fx {
+      position: absolute;
+      top: 12px;
+      left: 253px;
+      right: 45px;
+      height: 24px;
+      box-sizing: border-box;
+      border: 1px solid #cccccc;
+      border-radius: 4px;
+      background: #ffffff;
+    }
+
+    .hld__excel-f1 {
+      height: 24px;
+      background: #f4f4f4;
+      border-top: 1px solid #c5cbd6;
+      position: relative;
+    }
+
+    /* Debug styles to make Excel elements more visible */
+    .hld__excel-div.hld__excel-header {
+      background: #f8f9fa !important;
+    }
+
+    .hld__excel-div.hld__excel-footer {
+      background: #f4f4f4 !important;
+    }
+  `);
+
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
@@ -746,6 +1086,10 @@
     // feature toggles
     showImages: getSetting('showImages', true),
     showGameLinks: getSetting('showGameLinks', true),
+    
+    // Excel mode
+    excelMode: false,
+    excelTheme: 'tencent', // tencent, wps, office
   };
   function readSelfIdFromPage() {
     // 1) 先锁定 Header 区域，避免撞到聊天消息里的 CharacterName_name__*
@@ -2012,6 +2356,304 @@
     }
   }
 
+  /* ======= Excel Mode Functions ======= */
+  function generateColumnLetters() {
+    let capital = []
+    let columnLetters = []
+    for (let i=65;i<91;i++) capital.push(String.fromCharCode(i))
+    Array('', 'A', 'B', 'C').forEach(n => capital.forEach(c => columnLetters.push(`${n}${c}`)))
+    return columnLetters
+  }
+
+  function generateExcelTable(rows = 50, cols = 26) {
+    const columnLetters = generateColumnLetters();
+    
+    // 只生成表格行，不包含表头（因为header中的h4已经是列标签了）
+    let bodyHtml = '';
+    for (let row = 1; row <= rows; row++) {
+      bodyHtml += `<tr><td class="row-header">${row}</td>`;
+      for (let col = 0; col < cols; col++) {
+        bodyHtml += `<td contenteditable="true" data-row="${row}" data-col="${columnLetters[col]}"></td>`;
+      }
+      bodyHtml += '</tr>';
+    }
+    
+    return `
+      <table class="hld__excel-table">
+        <tbody>${bodyHtml}</tbody>
+      </table>
+    `;
+  }
+
+  function toggleExcelMode(enabled) {
+    if (enabled) {
+      createExcelInterface();
+    } else {
+      removeExcelInterface();
+    }
+  }
+
+  function createExcelInterface() {
+    // Remove existing Excel elements
+    removeExcelInterface();
+    
+    const columnLetters = generateColumnLetters();
+    
+    // Get the IDE overlay element
+    const overlay = document.getElementById(CFG.overlayId);
+    if (!overlay) {
+      console.error('[Excel] IDE overlay not found');
+      return;
+    }
+    
+    if (state.excelTheme === 'tencent') {
+      // 腾讯文档风格 - 插入到IDE overlay中
+      overlay.insertAdjacentHTML('beforeend', `
+        <div class="hld__excel-div hld__excel-header">
+          <div class="hld__excel-titlebar">
+            <div class="hld__excel-titlebar-content hld__excel-icon24" style="margin:2px 2px 2px 10px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_1')});"></div>
+            <div class="hld__excel-titlebar-content hld__excel-icon12" style="background-image:url(${getExcelTheme(state.excelTheme, 'icon_2')});"></div>
+            <div style="height: 24px;border-right: 1px solid rgb(0, 0, 0);opacity: 0.06;margin: 0 12px;vertical-align: middle;"></div>
+            <div class="hld__excel-titlebar-title">工作簿1</div>
+            <div class="hld__excel-titlebar-content hld__excel-icon16" style="margin-left: 10px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_3')});"></div>
+            <div class="hld__excel-titlebar-content hld__excel-icon16" style="margin-left: 12px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_4')});"></div>
+            <div class="hld__excel-titlebar-content hld__excel-icon16" style="margin-left: 10px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_5')});"></div>
+            <div style="margin-left: 5px;font-size: 12px;line-height: 20px;height: 18px;;color: #000;opacity: 0.48;font-weight:400;">上次修改是在2小时前进行的</div>
+            <div style="flex-grow: 1;"></div>
+            <div style="height: 24px;border-right: 1px solid rgb(0, 0, 0);opacity: 0.06;margin: 0 12px;vertical-align: middle;"></div>
+            <div style="width:28px;height:28px;border-radius: 4px;background: #e9e9e9;text-align: center;line-height: 32px;">🐟︎</div>
+          </div>
+          <div class="hld__excel-toolbar">
+            ${Array.from({length: 4}, (_, i) => '<div class="hld__excel-titlebar-content hld__excel-icon20" style="margin:0 6px;background-image:url(' + getExcelTheme(state.excelTheme, "icon_"+(10+i)) + ');"></div>').join('')}
+            <div style="height: 16px;border-right: 1px solid rgb(0, 0, 0);opacity: 0.06;margin: 0 4px;vertical-align: middle;"></div>
+            <div class="hld__excel-titlebar-content hld__excel-icon20" style="margin-left: 8px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_14')});"></div>
+            <div style="padding: 0 2px;">插入</div>
+            <div class="hld__excel-titlebar-content hld__excel-icon12" style="background-image:url(${getExcelTheme(state.excelTheme, 'icon_2')});"></div>
+            <div style="height: 16px;border-right: 1px solid rgb(0, 0, 0);opacity: 0.06;margin: 0 8px;vertical-align: middle;"></div>
+            <div style="padding: 0 30px 0 4px;">常规</div>
+            <div class="hld__excel-titlebar-content hld__excel-icon12" style="background-image:url(${getExcelTheme(state.excelTheme, 'icon_2')});"></div>
+            <div style="flex-grow: 1;"></div>
+          </div>
+          <div class="hld__excel-formulabar">
+            <div style="border-right: 1px solid #e0e2e4;color: #777;text-align: center;width: 50px;font-size: 12px;height: 25px;line-height: 25px;font-weight:400;">A1</div>
+          </div>
+          <div class="hld__excel-h4">
+            <div class="hld__excel-sub"><div></div></div>
+            ${columnLetters.map(c => '<div class="hld__excel-column">'+c+'</div>').join('')}
+          </div>
+        </div>
+        <div class="hld__excel-div hld__excel-body" style="top: 125px; bottom: 24px;">
+          ${generateExcelTable()}
+        </div>
+        <div class="hld__excel-div hld__excel-footer">
+          <div class="hld__excel-icon24" style="margin-left: 10px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_33')});"></div>
+          <div class="hld__excel-icon24" style="margin-left: 10px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_34')});"></div>
+          <div class="hld__excel-sheet-tab">
+            <div class="hld__excel-sheet-name">
+              <div>工作表1</div>
+              <div class="hld__excel-icon12" style="margin-left: 4px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_2')});"></div>
+            </div>
+            <div class="hld__excel-sheet-underblock"></div>
+          </div>
+          <div style="flex-grow: 1;"></div>
+          <div class="hld__excel-icon24" style="margin-left: 10px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_35')});"></div>
+          <div class="hld__excel-icon12" style="margin-left: 2px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_2')});"></div>
+          <div style="height: 16px;border-right: 1px solid #000;opacity: 0.12;margin: 0 10px;vertical-align: middle;"></div>
+          <div class="hld__excel-icon24" style="background-image:url(${getExcelTheme(state.excelTheme, 'icon_36')});"></div>
+          <div class="hld__excel-footer-item" style="font-size: 20px;margin-left:20px;">-</div>
+          <div class="hld__excel-footer-item" style="font-weight: 400">100%</div>
+          <div class="hld__excel-footer-item" style="font-size: 20px;">+</div>
+          <div style="width:10px;"></div>
+        </div>
+      `);
+    } else if (state.excelTheme === 'office') {
+      // Office风格 - 插入到IDE overlay中
+      overlay.insertAdjacentHTML('beforeend', `
+        <div class="hld__excel-div hld__excel-header">
+          <div class="hld__excel-h1">
+            <div class="hld__excel-title">工作簿1 - Excel</div>
+            <img class="hld__excel-img-h1-l1" src="${getExcelTheme(state.excelTheme, 'H_L_1')}">
+            <img class="hld__excel-img-h1-r1" src="${getExcelTheme(state.excelTheme, 'H_R_1')}">
+          </div>
+          <div class="hld__excel-h2">
+            <img class="hld__excel-img-h2-l1" src="${getExcelTheme(state.excelTheme, 'H_L_2')}">
+            <img class="hld__excel-img-h2-r1" src="${getExcelTheme(state.excelTheme, 'H_R_2')}">
+          </div>
+          <div class="hld__excel-h3">
+            <img class="hld__excel-img-h3-l1" src="${getExcelTheme(state.excelTheme, 'H_L_3')}">
+            <img class="hld__excel-img-h3-r1" src="${getExcelTheme(state.excelTheme, 'H_R_3')}">
+            <div class="hld__excel-fx"></div>
+          </div>
+          <div class="hld__excel-h4">
+            <div class="hld__excel-sub"><div></div></div>
+            ${columnLetters.map(c => '<div class="hld__excel-column">'+c+'</div>').join('')}
+          </div>
+        </div>
+        <div class="hld__excel-div hld__excel-body" style="top: 221px; bottom: 24px;">
+          ${generateExcelTable()}
+        </div>
+        <div class="hld__excel-div hld__excel-footer">
+          <div class="hld__excel-f1">
+            <img class="hld__excel-img-f1-l1" src="${getExcelTheme(state.excelTheme, 'F_L_1')}">
+            <img class="hld__excel-img-f1-r1" src="${getExcelTheme(state.excelTheme, 'F_R_1')}">
+          </div>
+        </div>
+      `);
+    } else {
+      // WPS风格 (默认) - 插入到IDE overlay中
+      overlay.insertAdjacentHTML('beforeend', `
+        <div class="hld__excel-div hld__excel-header">
+          <div class="hld__excel-h1">
+            <div class="hld__excel-title">工作簿1 - Excel</div>
+            <img class="hld__excel-img-h1-l1" src="${getExcelTheme(state.excelTheme, 'H_L_1')}">
+            <img class="hld__excel-img-h1-r1" src="${getExcelTheme(state.excelTheme, 'H_R_1')}">
+          </div>
+          <div class="hld__excel-h2">
+            <img class="hld__excel-img-h2-l1" src="${getExcelTheme(state.excelTheme, 'H_L_2')}">
+            <img class="hld__excel-img-h2-r1" src="${getExcelTheme(state.excelTheme, 'H_R_2')}">
+          </div>
+          <div class="hld__excel-h3">
+            <img class="hld__excel-img-h3-l1" src="${getExcelTheme(state.excelTheme, 'H_L_3')}">
+            <img class="hld__excel-img-h3-r1" src="${getExcelTheme(state.excelTheme, 'H_R_3')}">
+            <div class="hld__excel-fx"></div>
+          </div>
+          <div class="hld__excel-h4">
+            <div class="hld__excel-sub"><div></div></div>
+            ${columnLetters.map(c => '<div class="hld__excel-column">'+c+'</div>').join('')}
+          </div>
+        </div>
+        <div class="hld__excel-div hld__excel-body" style="top: 196px; bottom: 24px;">
+          ${generateExcelTable()}
+        </div>
+        <div class="hld__excel-div hld__excel-footer">
+          <div class="hld__excel-f1">
+            <img class="hld__excel-img-f1-l1" src="${getExcelTheme(state.excelTheme, 'F_L_1')}">
+            <img class="hld__excel-img-f1-r1" src="${getExcelTheme(state.excelTheme, 'F_R_1')}">
+          </div>
+        </div>
+      `);
+    }
+    
+    // 显示Excel元素并隐藏IDE内容
+    const excelElements = document.querySelectorAll('.hld__excel-div');
+    excelElements.forEach(el => {
+      el.style.display = 'block';
+    });
+    
+    // 隐藏IDE的主要内容
+    const topbar = document.getElementById(CFG.topbarId);
+    const layout = document.getElementById(CFG.layoutId);
+    if (topbar) topbar.style.display = 'none';
+    if (layout) layout.style.display = 'none';
+    
+    // 添加表格交互功能
+    addExcelTableInteractions();
+  }
+
+  function addExcelTableInteractions() {
+    const table = document.querySelector('.hld__excel-table');
+    if (!table) return;
+    
+    let selectedCell = null;
+    
+    // 添加单元格点击事件
+    table.addEventListener('click', (e) => {
+      const cell = e.target.closest('td[contenteditable]');
+      if (!cell) return;
+      
+      // 清除之前选中的单元格
+      if (selectedCell) {
+        selectedCell.classList.remove('selected');
+      }
+      
+      // 选中当前单元格
+      cell.classList.add('selected');
+      selectedCell = cell;
+      
+      // 更新公式栏显示
+      const row = cell.dataset.row;
+      const col = cell.dataset.col;
+      const formulaBar = document.querySelector('.hld__excel-formulabar div');
+      if (formulaBar) {
+        formulaBar.textContent = `${col}${row}`;
+      }
+      
+      // 聚焦到单元格
+      cell.focus();
+    });
+    
+    // 添加键盘导航
+    table.addEventListener('keydown', (e) => {
+      if (!selectedCell) return;
+      
+      const currentRow = parseInt(selectedCell.dataset.row);
+      const currentCol = selectedCell.dataset.col;
+      const columnLetters = generateColumnLetters();
+      const currentColIndex = columnLetters.indexOf(currentCol);
+      
+      let newRow = currentRow;
+      let newColIndex = currentColIndex;
+      
+      switch (e.key) {
+        case 'ArrowUp':
+          e.preventDefault();
+          newRow = Math.max(1, currentRow - 1);
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          newRow = Math.min(50, currentRow + 1);
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          newColIndex = Math.max(0, currentColIndex - 1);
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          newColIndex = Math.min(25, currentColIndex + 1);
+          break;
+        case 'Tab':
+          e.preventDefault();
+          newColIndex = currentColIndex + 1;
+          if (newColIndex > 25) {
+            newColIndex = 0;
+            newRow = Math.min(50, currentRow + 1);
+          }
+          break;
+        case 'Enter':
+          e.preventDefault();
+          newRow = Math.min(50, currentRow + 1);
+          break;
+      }
+      
+      if (newRow !== currentRow || newColIndex !== currentColIndex) {
+        const newCol = columnLetters[newColIndex];
+        const newCell = table.querySelector(`td[data-row="${newRow}"][data-col="${newCol}"]`);
+        if (newCell) {
+          newCell.click();
+        }
+      }
+    });
+    
+    // 默认选中A1单元格
+    const firstCell = table.querySelector('td[data-row="1"][data-col="A"]');
+    if (firstCell) {
+      firstCell.click();
+    }
+  }
+
+  function removeExcelInterface() {
+    const excelElements = document.querySelectorAll('.hld__excel-div');
+    excelElements.forEach(el => {
+      el.remove();
+    });
+    
+    // 恢复IDE的主要内容
+    const topbar = document.getElementById(CFG.topbarId);
+    const layout = document.getElementById(CFG.layoutId);
+    if (topbar) topbar.style.display = 'flex';
+    if (layout) layout.style.display = 'grid';
+  }
+
   /* ======= UI ======= */
   function createUI() {
     if ($('#' + CFG.overlayId)) return;
@@ -2025,6 +2667,7 @@
           <button class="btn" data-action="toggle-images">Images: ${state.showImages ? 'ON' : 'OFF'}</button>
           <button class="btn" data-action="toggle-gamelinks">Game Links: ${state.showGameLinks ? 'ON' : 'OFF'}</button>
           <button class="btn" data-action="toggle-scroll">AutoScroll: ON</button>
+          <button class="btn" data-action="excel-mode">Excel: ${state.excelMode ? 'ON' : 'OFF'}</button>
           <button class="btn" data-action="exit">Exit</button>
         </div>
 
@@ -2087,6 +2730,11 @@
         btn.textContent = `Game Links: ${state.showGameLinks ? 'ON' : 'OFF'}`;
         // 重新渲染当前频道以应用更改
         renderBodyFull();
+      }
+      if (a === 'excel-mode') {
+        state.excelMode = !state.excelMode;
+        btn.textContent = `Excel: ${state.excelMode ? 'ON' : 'OFF'}`;
+        toggleExcelMode(state.excelMode);
       }
       if (a === 'font-size') {
         e.stopPropagation();

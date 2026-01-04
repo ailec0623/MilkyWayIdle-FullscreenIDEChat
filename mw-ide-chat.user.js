@@ -1162,6 +1162,26 @@
       position: relative;
     }
 
+    .hld__excel-f2 {
+      height: 24px;
+      background: #f4f4f4;
+      position: relative;
+    }
+
+    .hld__excel-img-fl2, 
+    .hld__excel-img-fr2 {
+      position: absolute;
+      top: 0;
+    }
+
+    .hld__excel-img-fl2 {
+      left: 0;
+    }
+
+    .hld__excel-img-fr2 {
+      right: 0;
+    }
+
     /* Debug styles to make Excel elements more visible */
     .hld__excel-div.hld__excel-header {
       background: #f8f9fa !important;
@@ -2645,10 +2665,43 @@
             <div style="height: 16px;border-right: 1px solid rgb(0, 0, 0);opacity: 0.06;margin: 0 8px;vertical-align: middle;"></div>
             <div style="padding: 0 30px 0 4px;">常规</div>
             <div class="hld__excel-titlebar-content hld__excel-icon12" style="background-image:url(${getExcelTheme(state.excelTheme, 'icon_2')});"></div>
+            <div class="hld__excel-titlebar-content hld__excel-icon20" style="margin-left: 12px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_15')});"></div>
+            <div style="margin-left: 1px;">
+                <div class="hld__excel-titlebar-content hld__excel-icon12" style="transform: rotate(180deg);background-image:url(${getExcelTheme(state.excelTheme, 'icon_2')});"></div>
+                <div class="hld__excel-titlebar-content hld__excel-icon12" style="background-image:url(${getExcelTheme(state.excelTheme, 'icon_2')});"></div>
+            </div>
+            <div style="height: 16px;border-right: 1px solid #000;opacity: 0.06;margin: 0 4px;vertical-align: middle;"></div>
+            <div style="padding: 0 4px 0 16px;">默认字体</div>
+            <div class="hld__excel-titlebar-content hld__excel-icon12" style="background-image:url(${getExcelTheme(state.excelTheme, 'icon_2')});"></div>
+            <div style="padding: 0 4px 0 13px;">10</div>
+            <div class="hld__excel-titlebar-content hld__excel-icon12" style="background-image:url(${getExcelTheme(state.excelTheme, 'icon_2')});"></div>
+            <div class="hld__excel-titlebar-content hld__excel-icon20" style="margin-left: 10px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_16')});"></div>
+            <div class="hld__excel-titlebar-pick">
+                <div class="hld__excel-titlebar-content hld__excel-icon20" style="background-image:url(${getExcelTheme(state.excelTheme, 'icon_17')});"></div>
+                <div class="hld__excel-titlebar-indication" style="background-color: #000;"></div>
+            </div>
+            <div class="hld__excel-titlebar-content hld__excel-icon12" style="margin-left: 4px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_2')});"></div>
+            <div class="hld__excel-titlebar-pick">
+                <div class="hld__excel-titlebar-content hld__excel-icon20" style="background-image:url(${getExcelTheme(state.excelTheme, 'icon_18')});"></div>
+                <div class="hld__excel-titlebar-indication" style="background-color: #8cddfa;"></div>
+            </div>
+            <div class="hld__excel-titlebar-content hld__excel-icon12" style="margin-left: 4px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_2')});"></div>
+            <div class="hld__excel-titlebar-content hld__excel-icon20" style="margin-left: 10px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_19')});"></div>
+            <div class="hld__excel-titlebar-content hld__excel-icon12" style="margin-left: 2px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_2')});"></div>
+            <div class="hld__excel-titlebar-content hld__excel-icon20" style="margin-left: 10px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_20')});"></div>
+            <div style="height: 16px;border-right: 1px solid #000;opacity: 0.06;margin: 0 10px;vertical-align: middle;"></div>
+            ${Array.from({length: 4}, (_, i) => '<div class="hld__excel-titlebar-content hld__excel-icon20" style="background-image:url(' + getExcelTheme(state.excelTheme, "icon_"+(21+i)) + ');"></div><div class="hld__excel-titlebar-content hld__excel-icon12" style="margin-left: 2px;margin-right: '+ (i==3?'0':'10') +'px;background-image:url(' + getExcelTheme(state.excelTheme, "icon_2") + ');"></div>').join('')}
+            <div style="height: 16px;border-right: 1px solid #000;opacity: 0.06;margin: 0 10px;vertical-align: middle;"></div>
+            <div class="hld__excel-titlebar-content hld__excel-icon20" style="background-image:url(${getExcelTheme(state.excelTheme, 'icon_25')});"></div>
+            <div class="hld__excel-titlebar-content hld__excel-icon12" style="margin-left: 4px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_2')});"></div>
+            <div style="height: 16px;border-right: 1px solid #000;opacity: 0.06;margin: 0 10px;vertical-align: middle;"></div>
+            ${Array.from({length: 4}, (_, i) => '<div class="hld__excel-titlebar-content hld__excel-icon20" style="background-image:url(' + getExcelTheme(state.excelTheme, "icon_"+(26+i)) + ');"></div><div class="hld__excel-titlebar-content hld__excel-icon12" style="margin-left: 2px;margin-right: '+ (i==3?'0':'10') +'px;background-image:url(' + getExcelTheme(state.excelTheme, "icon_2") + ');"></div>').join('')}
+            <div style="height: 16px;border-right: 1px solid #000;opacity: 0.06;margin: 0 10px;vertical-align: middle;"></div>
+            <div class="hld__excel-titlebar-content hld__excel-icon20" style="margin-left: 10px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_20')});"></div>
             <div style="flex-grow: 1;"></div>
           </div>
           <div class="hld__excel-formulabar">
-            <div class="hld__excel-formulabar-coordinate">A1</div>
+            <div style="border-right: 1px solid #e0e2e4;color: #777;text-align: center;width: 50px;font-size: 12px;height: 25px;line-height: 25px;font-weight:400;">A1</div>
             <input type="text" class="hld__excel-formulabar-input" placeholder="输入消息并按回车发送..." />
           </div>
           <div class="hld__excel-h4">
@@ -2660,7 +2713,13 @@
           ${generateExcelTable()}
         </div>
         <div class="hld__excel-div hld__excel-footer">
-          <div class="hld__excel-icon24" style="margin-left: 10px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_33')});"></div><div class="hld__excel-icon24" style="margin-left: 10px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_34')});"></div><div id="excel-channel-tabs-container"></div><div style="flex-grow: 1;"></div><div class="hld__excel-icon24" style="margin-left: 10px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_35')});"></div><div class="hld__excel-icon12" style="margin-left: 2px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_2')});"></div><div style="height: 16px;border-right: 1px solid #000;opacity: 0.12;margin: 0 10px;vertical-align: middle;"></div><div class="hld__excel-icon24" style="background-image:url(${getExcelTheme(state.excelTheme, 'icon_36')});"></div><div class="hld__excel-footer-item" style="font-size: 20px;margin-left:20px;">-</div><div class="hld__excel-footer-item" style="font-weight: 400">100%</div><div class="hld__excel-footer-item" style="font-size: 20px;">+</div><div style="width:10px;"></div>
+          <div class="hld__excel-icon24" style="margin-left: 10px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_33')});"></div><div class="hld__excel-icon24" style="margin-left: 10px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_34')});"></div><div class="hld__excel-sheet-tab">
+            <div class="hld__excel-sheet-name">
+                <div>工作表1</div>
+                <div class="hld__excel-icon12" style="margin-left: 4px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_2')});"></div>
+            </div>
+            <div class="hld__excel-sheet-underblock"></div>
+        </div><div id="excel-channel-tabs-container"></div><div style="flex-grow: 1;"></div><div class="hld__excel-icon24" style="margin-left: 10px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_35')});"></div><div class="hld__excel-icon12" style="margin-left: 2px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_2')});"></div><div style="height: 16px;border-right: 1px solid #000;opacity: 0.12;margin: 0 10px;vertical-align: middle;"></div><div class="hld__excel-icon24" style="background-image:url(${getExcelTheme(state.excelTheme, 'icon_36')});"></div><div class="hld__excel-footer-item" style="font-size: 20px;margin-left:20px;">-</div><div class="hld__excel-footer-item" style="font-weight: 400">100%</div><div class="hld__excel-footer-item" style="font-size: 20px;">+</div><div style="width:10px;"></div>
         </div>
       `);
     } else if (state.excelTheme === 'office') {
@@ -2733,6 +2792,10 @@
           <div class="hld__excel-f1">
             <img class="hld__excel-img-f1-l1" src="${getExcelTheme(state.excelTheme, 'F_L_1')}">
             <img class="hld__excel-img-f1-r1" src="${getExcelTheme(state.excelTheme, 'F_R_1')}">
+          </div>
+          <div class="hld__excel-f2">
+            <img class="hld__excel-img-fl2" src="${getExcelTheme(state.excelTheme, 'F_L_2')}">
+            <img class="hld__excel-img-fr2" src="${getExcelTheme(state.excelTheme, 'F_R_2')}">
           </div>
           <div id="excel-channel-tabs-container"></div>
         </div>

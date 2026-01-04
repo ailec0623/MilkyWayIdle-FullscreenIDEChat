@@ -2,9 +2,9 @@
 // @name         MilkyWayIdle - Fullscreen IDE Chat
 // @name:zh-CN   MilkyWayIdle - 全屏 IDE 聊天
 // @namespace    https://github.com/ailec0623/MilkyWayIdle-FullscreenIDEChat
-// @version      0.18.0
-// @description  Fullscreen IDE-style chat for MilkyWayIdle: channel tree, aligned log view, unread tracking, pause-follow mode, local input (no draft loss), adjustable font size, drag-to-reorder channels, improved message layout, click username to mention, double-click message to copy, cross-platform hotkeys, configurable game link highlighting, configurable auto image display, paste image upload to tupian.li, auto-jump to bottom when sending messages in paused state, fixed image display for chat-img format links.
-// @description:zh-CN  为 MilkyWayIdle 提供全屏 IDE 风格聊天界面：频道列表、日志对齐、未读提示、暂停跟随、本地输入（不丢草稿）、可调节字体大小、拖拽排序频道、改进消息布局、点击用户名快速@、双击消息复制、跨平台快捷键、可配置游戏链接高亮、可配置自动图片显示、粘贴图片上传到图床、暂停状态下发送消息自动跳转到底部、修复chat-img格式链接的图片显示问题。
+// @version      0.20.0
+// @description  Fullscreen IDE-style chat for MilkyWayIdle: channel tree, aligned log view, unread tracking, pause-follow mode, local input (no draft loss), adjustable font size, drag-to-reorder channels, improved message layout, click username to mention, double-click message to copy, cross-platform hotkeys, configurable game link highlighting, configurable auto image display, paste image upload to tupian.li, auto-jump to bottom when sending messages in paused state, fixed image display for chat-img format links, Excel mode with integrated chat display.
+// @description:zh-CN  为 MilkyWayIdle 提供全屏 IDE 风格聊天界面：频道列表、日志对齐、未读提示、暂停跟随、本地输入（不丢草稿）、可调节字体大小、拖拽排序频道、改进消息布局、点击用户名快速@、双击消息复制、跨平台快捷键、可配置游戏链接高亮、可配置自动图片显示、粘贴图片上传到图床、暂停状态下发送消息自动跳转到底部、修复chat-img格式链接的图片显示问题、Excel模式集成聊天室显示。
 // @author       400BadRequest
 // @copyright    2025, 400BadRequest
 // @license      MIT
@@ -674,10 +674,13 @@
       bottom: 0;
       border-top: 1px solid #bbbbbb;
       height: 24px;
-      display: flex;
+      display: flex !important;
       align-items: center;
       padding: 0 8px;
       margin: 0;
+      white-space: nowrap !important;
+      overflow: hidden;
+      flex-wrap: nowrap !important;
     }
 
     .hld__excel-body {
@@ -764,6 +767,63 @@
     .hld__excel-table td:focus {
       outline: 2px solid #0078d4;
       outline-offset: -2px;
+    }
+
+    /* Chat-specific Excel styles */
+    .hld__excel-table td[data-col="A"] {
+      width: 120px !important;
+      min-width: 120px !important;
+      max-width: 120px !important;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 11px;
+      color: #333;
+      font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .hld__excel-table td[data-col="B"] {
+      width: 100px !important;
+      min-width: 100px !important;
+      max-width: 100px !important;
+      font-weight: 600;
+      color: #0052cc;
+      font-size: 11px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .hld__excel-table td[data-col="C"] {
+      width: 300px !important;
+      min-width: 300px !important;
+      max-width: 300px !important;
+      white-space: pre-wrap !important;
+      word-break: break-word !important;
+      line-height: 1.3;
+      padding: 6px 8px;
+      color: #222;
+      font-size: 11px;
+    }
+
+    /* Header row styling */
+    .hld__excel-table td[data-row="1"] {
+      background: #f0f0f0 !important;
+      font-weight: bold !important;
+      text-align: center;
+      border-bottom: 2px solid #ccc;
+    }
+
+    /* New message highlighting */
+    .hld__excel-table td.new-message {
+      background: #e6f3ff !important;
+      animation: fadeHighlight 3s ease-out;
+    }
+
+    @keyframes fadeHighlight {
+      0% { background: #b3d9ff !important; }
+      100% { background: #e6f3ff !important; }
     }
 
     /* Tencent Theme Styles */
@@ -870,8 +930,73 @@
 
     .hld__excel-sheet-tab {
       display: flex;
+      align-items: flex-end;
+      margin-left: 1px;
+      height: 24px;
+      position: relative;
+    }
+
+    /* 确保footer中的所有直接子元素不会换行 */
+    .hld__excel-footer > * {
+      display: inline-flex !important;
+      flex-shrink: 0 !important;
+      vertical-align: middle;
+      white-space: nowrap !important;
+    }
+
+    /* 频道标签容器样式 */
+    #excel-channel-tabs-container {
+      display: inline-flex !important;
+      align-items: center;
+      flex-shrink: 0 !important;
+      white-space: nowrap !important;
+      margin-left: 20px;
+    }
+
+    /* 确保所有频道标签并排显示，无间隙 */
+    #excel-channel-tabs-container .hld__excel-sheet-tab {
+      display: inline-flex !important;
+      align-items: center;
+      margin-right: 0 !important;
+      flex-shrink: 0 !important;
+    }
+
+    /* 确保footer中的sheet-tab不会换行，无间隙 */
+    .hld__excel-footer .hld__excel-sheet-tab {
+      position: relative;
+      display: inline-flex !important;
       align-items: center;
       margin-left: 20px;
+      margin-right: 0 !important;
+      flex-shrink: 0 !important;
+    }
+
+    /* 确保f1元素也能正确排列 */
+    .hld__excel-footer .hld__excel-f1 {
+      position: relative;
+      display: inline-flex !important;
+      align-items: center;
+      flex: 1;
+      flex-shrink: 0 !important;
+    }
+
+    /* 确保footer中的icon元素不会换行 */
+    .hld__excel-footer .hld__excel-icon24 {
+      display: inline-block !important;
+      flex-shrink: 0 !important;
+      vertical-align: middle;
+    }
+
+    .hld__excel-footer .hld__excel-icon12 {
+      display: inline-block !important;
+      flex-shrink: 0 !important;
+      vertical-align: middle;
+    }
+
+    .hld__excel-footer .hld__excel-footer-item {
+      display: inline-block !important;
+      flex-shrink: 0 !important;
+      vertical-align: middle;
     }
 
     .hld__excel-sheet-name {
@@ -882,13 +1007,19 @@
       border: 1px solid #ccc;
       border-bottom: none;
       font-size: 12px;
+      margin: 0;
+      position: relative;
+      top: 0;
     }
 
     .hld__excel-sheet-underblock {
       width: 100%;
       height: 2px;
       background: #fff;
-      margin-top: -1px;
+      margin-top: 0;
+      position: absolute;
+      bottom: 0;
+      left: 0;
     }
 
     .hld__excel-footer-item {
@@ -1938,6 +2069,17 @@
       // only append new lines for current channel
       if (changed && state.activeChannel === channelName) {
         appendNewLinesForActiveChannel();
+        
+        // 如果在Excel模式下，也更新Excel聊天内容
+        if (state.excelMode) {
+          // 如果变化的频道是Excel模式下的活跃频道，更新内容
+          if (channelName === excelChatState.activeExcelChannel) {
+            updateExcelChatContent();
+          } else {
+            // 否则只更新频道标签状态（显示未读数）
+            updateExcelChannelTabsStatus();
+          }
+        }
       }
     }
   }
@@ -2119,6 +2261,11 @@
       clearUnread(channelName);
       renderSidebar();
       renderBodyFull();
+      
+      // 如果在Excel模式下，更新Excel聊天内容
+      if (state.excelMode) {
+        updateExcelChatContent();
+      }
       return;
     }
 
@@ -2140,6 +2287,10 @@
     showNewBar(false);
     setPaused(false);
 
+    // 如果在Excel模式下，更新Excel聊天内容
+    if (state.excelMode) {
+      updateExcelChatContent();
+    }
   }
 
   /* ======= Keep original chat panel alive but offscreen ======= */
@@ -2356,7 +2507,6 @@
     }
   }
 
-  /* ======= Excel Mode Functions ======= */
   function generateColumnLetters() {
     let capital = []
     let columnLetters = []
@@ -2396,6 +2546,9 @@
   function createExcelInterface() {
     // Remove existing Excel elements
     removeExcelInterface();
+    
+    // 初始化Excel聊天状态
+    excelChatState.activeExcelChannel = state.activeChannel;
     
     const columnLetters = generateColumnLetters();
     
@@ -2442,28 +2595,11 @@
             ${columnLetters.map(c => '<div class="hld__excel-column">'+c+'</div>').join('')}
           </div>
         </div>
-        <div class="hld__excel-div hld__excel-body" style="top: 125px; bottom: 24px;">
+        <div class="hld__excel-div hld__excel-body" style="top: 105px; bottom: 24px;">
           ${generateExcelTable()}
         </div>
         <div class="hld__excel-div hld__excel-footer">
-          <div class="hld__excel-icon24" style="margin-left: 10px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_33')});"></div>
-          <div class="hld__excel-icon24" style="margin-left: 10px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_34')});"></div>
-          <div class="hld__excel-sheet-tab">
-            <div class="hld__excel-sheet-name">
-              <div>工作表1</div>
-              <div class="hld__excel-icon12" style="margin-left: 4px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_2')});"></div>
-            </div>
-            <div class="hld__excel-sheet-underblock"></div>
-          </div>
-          <div style="flex-grow: 1;"></div>
-          <div class="hld__excel-icon24" style="margin-left: 10px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_35')});"></div>
-          <div class="hld__excel-icon12" style="margin-left: 2px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_2')});"></div>
-          <div style="height: 16px;border-right: 1px solid #000;opacity: 0.12;margin: 0 10px;vertical-align: middle;"></div>
-          <div class="hld__excel-icon24" style="background-image:url(${getExcelTheme(state.excelTheme, 'icon_36')});"></div>
-          <div class="hld__excel-footer-item" style="font-size: 20px;margin-left:20px;">-</div>
-          <div class="hld__excel-footer-item" style="font-weight: 400">100%</div>
-          <div class="hld__excel-footer-item" style="font-size: 20px;">+</div>
-          <div style="width:10px;"></div>
+          <div class="hld__excel-icon24" style="margin-left: 10px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_33')});"></div><div class="hld__excel-icon24" style="margin-left: 10px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_34')});"></div><div id="excel-channel-tabs-container"></div><div style="flex-grow: 1;"></div><div class="hld__excel-icon24" style="margin-left: 10px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_35')});"></div><div class="hld__excel-icon12" style="margin-left: 2px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_2')});"></div><div style="height: 16px;border-right: 1px solid #000;opacity: 0.12;margin: 0 10px;vertical-align: middle;"></div><div class="hld__excel-icon24" style="background-image:url(${getExcelTheme(state.excelTheme, 'icon_36')});"></div><div class="hld__excel-footer-item" style="font-size: 20px;margin-left:20px;">-</div><div class="hld__excel-footer-item" style="font-weight: 400">100%</div><div class="hld__excel-footer-item" style="font-size: 20px;">+</div><div style="width:10px;"></div>
         </div>
       `);
     } else if (state.excelTheme === 'office') {
@@ -2497,6 +2633,7 @@
             <img class="hld__excel-img-f1-l1" src="${getExcelTheme(state.excelTheme, 'F_L_1')}">
             <img class="hld__excel-img-f1-r1" src="${getExcelTheme(state.excelTheme, 'F_R_1')}">
           </div>
+          <div id="excel-channel-tabs-container"></div>
         </div>
       `);
     } else {
@@ -2530,6 +2667,7 @@
             <img class="hld__excel-img-f1-l1" src="${getExcelTheme(state.excelTheme, 'F_L_1')}">
             <img class="hld__excel-img-f1-r1" src="${getExcelTheme(state.excelTheme, 'F_R_1')}">
           </div>
+          <div id="excel-channel-tabs-container"></div>
         </div>
       `);
     }
@@ -2634,6 +2772,9 @@
       }
     });
     
+    // 初始化聊天室集成
+    initializeChatInExcel();
+    
     // 默认选中A1单元格
     const firstCell = table.querySelector('td[data-row="1"][data-col="A"]');
     if (firstCell) {
@@ -2641,7 +2782,367 @@
     }
   }
 
+  // Excel聊天室集成相关变量
+  let excelChatState = {
+    currentRow: 1,
+    maxRows: 50,
+    autoRefreshInterval: null,
+    lastMessageCount: 0,
+    activeExcelChannel: 'default' // Excel模式下的活跃频道
+  };
+
+  function initializeChatInExcel() {
+    // 设置表头
+    setupExcelChatHeaders();
+    
+    // 生成频道标签（初始化时强制重新生成）
+    generateExcelChannelTabs(true);
+    
+    // 开始自动刷新聊天内容
+    startExcelChatAutoRefresh();
+    
+    // 立即加载一次聊天内容
+    updateExcelChatContent();
+  }
+
+  // 存储已生成的频道列表，用于检测变化
+  let lastGeneratedChannels = [];
+
+  function generateExcelChannelTabs(forceRegenerate = false) {
+    const tabsContainer = document.getElementById('excel-channel-tabs-container');
+    if (!tabsContainer) return;
+    
+    // 获取所有可用的频道
+    const channels = Array.from(state.knownChannels);
+    if (channels.length === 0) {
+      channels.push('default');
+    }
+    
+    // 检查频道列表是否发生变化
+    const channelsChanged = forceRegenerate || 
+      channels.length !== lastGeneratedChannels.length ||
+      !channels.every(ch => lastGeneratedChannels.includes(ch));
+    
+    if (channelsChanged) {
+      // 频道列表发生变化，需要重新生成所有标签
+      console.log('[Excel] Channel list changed, regenerating tabs');
+      lastGeneratedChannels = [...channels];
+      
+      // 清空现有标签
+      tabsContainer.innerHTML = '';
+      
+      // 为每个频道创建独立的sheet-tab
+      channels.forEach((channelName, index) => {
+        const tab = document.createElement('div');
+        tab.className = 'hld__excel-sheet-tab';
+        tab.style.cursor = 'pointer';
+        tab.dataset.channel = channelName; // 添加数据属性用于后续查找
+        
+        // 检查是否是当前活跃频道
+        const isActive = channelName === excelChatState.activeExcelChannel;
+        
+        // 获取频道的未读消息数
+        const store = state.channels.get(channelName);
+        const unreadCount = store ? store.unread : 0;
+        
+        // 创建显示名称
+        const displayName = unreadCount > 0 ? `${channelName} (${unreadCount})` : channelName;
+        
+        // 创建标签内容，使用原有的结构
+        tab.innerHTML = `
+          <div class="hld__excel-sheet-name" style="${isActive ? 'background: #fff; border-color: #999;' : 'background: #f0f0f0;'}">
+            <div class="channel-display-name">${displayName}</div>
+            <div class="hld__excel-icon12" style="margin-left: 4px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_2')});"></div>
+          </div>
+          <div class="hld__excel-sheet-underblock"></div>
+        `;
+        
+        // 添加点击事件
+        tab.addEventListener('click', () => {
+          switchExcelChannel(channelName);
+        });
+        
+        tabsContainer.appendChild(tab);
+      });
+    } else {
+      // 频道列表没有变化，只更新现有标签的状态
+      updateExcelChannelTabsStatus();
+    }
+  }
+
+  function updateExcelChannelTabsStatus() {
+    const tabsContainer = document.getElementById('excel-channel-tabs-container');
+    if (!tabsContainer) return;
+    
+    // 更新每个标签的状态
+    const tabs = tabsContainer.querySelectorAll('.hld__excel-sheet-tab');
+    tabs.forEach(tab => {
+      const channelName = tab.dataset.channel;
+      if (!channelName) return;
+      
+      const isActive = channelName === excelChatState.activeExcelChannel;
+      const store = state.channels.get(channelName);
+      const unreadCount = store ? store.unread : 0;
+      
+      // 创建显示名称
+      const displayName = unreadCount > 0 ? `${channelName} (${unreadCount})` : channelName;
+      
+      // 更新显示名称
+      const displayNameElement = tab.querySelector('.channel-display-name');
+      if (displayNameElement) {
+        displayNameElement.textContent = displayName;
+      }
+      
+      // 更新活跃状态样式
+      const sheetName = tab.querySelector('.hld__excel-sheet-name');
+      if (sheetName) {
+        sheetName.style.background = isActive ? '#fff' : '#f0f0f0';
+        sheetName.style.borderColor = isActive ? '#999' : '#ccc';
+      }
+    });
+  }
+
+  function switchExcelChannel(channelName) {
+    // 更新Excel模式下的活跃频道
+    excelChatState.activeExcelChannel = channelName;
+    
+    // 同时更新主系统的活跃频道
+    switchToChannel(channelName);
+    
+    // 只更新标签状态，不重新生成
+    updateExcelChannelTabsStatus();
+    
+    // 立即更新聊天内容
+    updateExcelChatContent();
+  }
+
+  function setupExcelChatHeaders() {
+    const table = document.querySelector('.hld__excel-table');
+    if (!table) return;
+    
+    // 设置A列为时间，B列为用户名，C列为消息
+    const timeCell = table.querySelector('td[data-row="1"][data-col="A"]');
+    const userCell = table.querySelector('td[data-row="1"][data-col="B"]');
+    const messageCell = table.querySelector('td[data-row="1"][data-col="C"]');
+    
+    if (timeCell) {
+      timeCell.textContent = '时间';
+      timeCell.style.fontWeight = 'bold';
+      timeCell.style.backgroundColor = '#f0f0f0';
+      timeCell.contentEditable = 'false';
+    }
+    
+    if (userCell) {
+      userCell.textContent = '用户名';
+      userCell.style.fontWeight = 'bold';
+      userCell.style.backgroundColor = '#f0f0f0';
+      userCell.contentEditable = 'false';
+    }
+    
+    if (messageCell) {
+      messageCell.textContent = '消息';
+      messageCell.style.fontWeight = 'bold';
+      messageCell.style.backgroundColor = '#f0f0f0';
+      messageCell.contentEditable = 'false';
+    }
+    
+    // 调整列宽
+    adjustExcelColumnWidths();
+  }
+
+  function adjustExcelColumnWidths() {
+    const table = document.querySelector('.hld__excel-table');
+    if (!table) return;
+    
+    // 时间列 (A列) - 较窄
+    const timeCells = table.querySelectorAll('td[data-col="A"]');
+    timeCells.forEach(cell => {
+      cell.style.width = '120px';
+      cell.style.minWidth = '120px';
+      cell.style.maxWidth = '120px';
+    });
+    
+    // 用户名列 (B列) - 中等宽度
+    const userCells = table.querySelectorAll('td[data-col="B"]');
+    userCells.forEach(cell => {
+      cell.style.width = '100px';
+      cell.style.minWidth = '100px';
+      cell.style.maxWidth = '100px';
+    });
+    
+    // 消息列 (C列) - 较宽
+    const messageCells = table.querySelectorAll('td[data-col="C"]');
+    messageCells.forEach(cell => {
+      cell.style.width = '300px';
+      cell.style.minWidth = '300px';
+      cell.style.maxWidth = '300px';
+      cell.style.whiteSpace = 'pre-wrap';
+      cell.style.wordBreak = 'break-word';
+    });
+  }
+
+  function startExcelChatAutoRefresh() {
+    // 清除现有的定时器
+    if (excelChatState.autoRefreshInterval) {
+      clearInterval(excelChatState.autoRefreshInterval);
+    }
+    
+    // 每2秒刷新一次聊天内容
+    excelChatState.autoRefreshInterval = setInterval(() => {
+      updateExcelChatContent();
+    }, 2000);
+  }
+
+  function stopExcelChatAutoRefresh() {
+    if (excelChatState.autoRefreshInterval) {
+      clearInterval(excelChatState.autoRefreshInterval);
+      excelChatState.autoRefreshInterval = null;
+    }
+  }
+
+  function updateExcelChatContent() {
+    const table = document.querySelector('.hld__excel-table');
+    if (!table) return;
+    
+    // 获取Excel模式下当前活跃频道的消息
+    const ch = ensureChannel(excelChatState.activeExcelChannel);
+    const store = state.channels.get(ch);
+    if (!store || !store.lines.length) return;
+    
+    // 解析消息并填充到表格中
+    const messages = parseMessagesForExcel(store.lines);
+    fillExcelTable(messages);
+    
+    // 只更新频道标签状态（刷新未读数等），不重新生成
+    updateExcelChannelTabsStatus();
+  }
+
+  function parseMessagesForExcel(lines) {
+    const messages = [];
+    
+    lines.forEach(line => {
+      // 解析HTML格式的消息行
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = line;
+      
+      const tsElement = tempDiv.querySelector('.mw-ide-ts');
+      const nameElement = tempDiv.querySelector('.mw-ide-name');
+      const msgElement = tempDiv.querySelector('.mw-ide-msg');
+      
+      if (tsElement && nameElement && msgElement) {
+        const timestamp = tsElement.textContent.trim();
+        const username = nameElement.textContent.trim();
+        const message = msgElement.textContent.trim();
+        
+        messages.push({
+          timestamp: timestamp,
+          username: username,
+          message: message
+        });
+      }
+    });
+    
+    return messages;
+  }
+
+  function fillExcelTable(messages) {
+    const table = document.querySelector('.hld__excel-table');
+    if (!table) return;
+    
+    // 清除现有的聊天内容（保留表头）
+    for (let row = 2; row <= excelChatState.maxRows; row++) {
+      const timeCell = table.querySelector(`td[data-row="${row}"][data-col="A"]`);
+      const userCell = table.querySelector(`td[data-row="${row}"][data-col="B"]`);
+      const messageCell = table.querySelector(`td[data-row="${row}"][data-col="C"]`);
+      
+      if (timeCell) {
+        timeCell.textContent = '';
+        timeCell.style.backgroundColor = '';
+        timeCell.contentEditable = 'true';
+      }
+      if (userCell) {
+        userCell.textContent = '';
+        userCell.style.backgroundColor = '';
+        userCell.contentEditable = 'true';
+      }
+      if (messageCell) {
+        messageCell.textContent = '';
+        messageCell.style.backgroundColor = '';
+        messageCell.contentEditable = 'true';
+      }
+    }
+    
+    // 填充最新的消息（最多49条，因为第1行是表头）
+    const maxMessages = Math.min(messages.length, excelChatState.maxRows - 1);
+    const startIndex = Math.max(0, messages.length - maxMessages);
+    
+    for (let i = 0; i < maxMessages; i++) {
+      const message = messages[startIndex + i];
+      const row = i + 2; // 从第2行开始（第1行是表头）
+      
+      const timeCell = table.querySelector(`td[data-row="${row}"][data-col="A"]`);
+      const userCell = table.querySelector(`td[data-row="${row}"][data-col="B"]`);
+      const messageCell = table.querySelector(`td[data-row="${row}"][data-col="C"]`);
+      
+      if (timeCell && userCell && messageCell) {
+        timeCell.textContent = message.timestamp;
+        timeCell.title = message.timestamp; // 添加title属性，鼠标悬停时显示完整时间戳
+        timeCell.contentEditable = 'false';
+        timeCell.style.backgroundColor = '#f9f9f9';
+        
+        userCell.textContent = message.username;
+        userCell.title = message.username; // 添加title属性，鼠标悬停时显示完整用户名
+        userCell.contentEditable = 'false';
+        userCell.style.backgroundColor = '#f9f9f9';
+        
+        messageCell.textContent = message.message;
+        messageCell.title = message.message; // 添加title属性，鼠标悬停时显示完整消息
+        messageCell.contentEditable = 'false';
+        messageCell.style.backgroundColor = '#f9f9f9';
+        
+        // 如果是新消息，高亮显示
+        if (i >= maxMessages - (messages.length - excelChatState.lastMessageCount)) {
+          timeCell.style.backgroundColor = '#e6f3ff';
+          userCell.style.backgroundColor = '#e6f3ff';
+          messageCell.style.backgroundColor = '#e6f3ff';
+        }
+      }
+    }
+    
+    // 更新消息计数
+    excelChatState.lastMessageCount = messages.length;
+    
+    // 自动滚动到最新消息
+    scrollToLatestMessage();
+  }
+
+  function scrollToLatestMessage() {
+    const table = document.querySelector('.hld__excel-table');
+    const excelBody = document.querySelector('.hld__excel-div.hld__excel-body');
+    if (!table || !excelBody) return;
+    
+    // 找到最后一条有内容的消息行
+    let lastMessageRow = 1;
+    for (let row = 2; row <= excelChatState.maxRows; row++) {
+      const messageCell = table.querySelector(`td[data-row="${row}"][data-col="C"]`);
+      if (messageCell && messageCell.textContent.trim()) {
+        lastMessageRow = row;
+      }
+    }
+    
+    // 滚动到最后一条消息
+    if (lastMessageRow > 1) {
+      const lastCell = table.querySelector(`td[data-row="${lastMessageRow}"][data-col="A"]`);
+      if (lastCell) {
+        lastCell.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }
+    }
+  }
+
   function removeExcelInterface() {
+    // 停止聊天自动刷新
+    stopExcelChatAutoRefresh();
+    
     const excelElements = document.querySelectorAll('.hld__excel-div');
     excelElements.forEach(el => {
       el.remove();

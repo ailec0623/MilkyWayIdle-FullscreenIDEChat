@@ -1299,8 +1299,8 @@
     showGameLinks: getSetting('showGameLinks', true),
     
     // Excel mode
-    excelMode: false,
-    excelTheme: 'tencent', // tencent, wps, office
+    excelMode: getSetting('excelMode', false),
+    excelTheme: getSetting('excelTheme', 'tencent'), // tencent, wps, office
   };
   function readSelfIdFromPage() {
     // 1) 先锁定 Header 区域，避免撞到聊天消息里的 CharacterName_name__*
@@ -2651,7 +2651,7 @@
             <div class="hld__excel-titlebar-content hld__excel-icon16" style="margin-left: 10px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_3')});"></div>
             <div class="hld__excel-titlebar-content hld__excel-icon16" style="margin-left: 12px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_4')});"></div>
             <div class="hld__excel-titlebar-content hld__excel-icon16" style="margin-left: 10px;background-image:url(${getExcelTheme(state.excelTheme, 'icon_5')});"></div>
-            <div style="margin-left: 5px;font-size: 12px;line-height: 20px;height: 18px;;color: #000;opacity: 0.48;font-weight:400;">上次修改是在2小时前进行的</div>
+            <div style="margin-left: 5px;font-size: 12px;line-height: 20px;height: 18px;;color: #000;opacity: 0.48;font-weight:400;">按下ESC退回到IDE模式, 按下alt + I 或者 cmd + I 退回到游戏界面</div>
             <div style="flex-grow: 1;"></div>
             <div style="height: 24px;border-right: 1px solid rgb(0, 0, 0);opacity: 0.06;margin: 0 12px;vertical-align: middle;"></div>
             <div style="width:28px;height:28px;border-radius: 4px;background: #e9e9e9;text-align: center;line-height: 32px;">🐟︎</div>
@@ -3427,6 +3427,7 @@
       }
       if (a === 'excel-mode') {
         state.excelMode = !state.excelMode;
+        setSetting('excelMode', state.excelMode); // 保存Excel模式状态
         btn.textContent = `Excel: ${state.excelMode ? 'ON' : 'OFF'}`;
         toggleExcelMode(state.excelMode);
       }
@@ -3620,6 +3621,18 @@
 
       // focus local input
       setTimeout(() => $('#' + CFG.localInputId)?.focus(), 0);
+      
+      // 根据保存的状态自动进入Excel模式
+      if (state.excelMode) {
+        setTimeout(() => {
+          toggleExcelMode(true);
+          // 更新按钮状态
+          const excelBtn = document.querySelector('[data-action="excel-mode"]');
+          if (excelBtn) {
+            excelBtn.textContent = `Excel: ON`;
+          }
+        }, 100); // 稍微延迟以确保界面已经完全加载
+      }
     } else {
       restoreChatPanel(state.chatPanel);
       if (state.activePanelObserver) {
@@ -3655,6 +3668,19 @@
       if (isHotkeyPressed) {
         e.preventDefault();
         toggleOverlay();
+      }
+      
+      // ESC键退出Excel模式
+      if (e.key === 'Escape' && state.excelMode) {
+        e.preventDefault();
+        state.excelMode = false;
+        setSetting('excelMode', false); // 保存Excel模式状态
+        toggleExcelMode(false);
+        // 更新按钮状态
+        const excelBtn = document.querySelector('[data-action="excel-mode"]');
+        if (excelBtn) {
+          excelBtn.textContent = `Excel: OFF`;
+        }
       }
     });
 

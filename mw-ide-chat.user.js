@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         MilkyWayIdle - Fullscreen IDE Chat
-// @name:zh-CN   MilkyWayIdle - 全屏 IDE 聊天
+// @name         MilkyWayIdle - Fullscreen Chat(摸鱼助手)
+// @name:zh-CN   MilkyWayIdle - 全屏聊天（摸鱼助手）
 // @namespace    https://github.com/ailec0623/MilkyWayIdle-FullscreenIDEChat
 // @version      0.20.0
 // @description  Fullscreen IDE-style chat for MilkyWayIdle: channel tree, aligned log view, unread tracking, pause-follow mode, local input (no draft loss), adjustable font size, drag-to-reorder channels, improved message layout, click username to mention, double-click message to copy, cross-platform hotkeys, configurable game link highlighting, configurable auto image display, paste image upload to tupian.li, auto-jump to bottom when sending messages in paused state, fixed image display for chat-img format links, Excel mode with integrated chat display.
-// @description:zh-CN  为 MilkyWayIdle 提供全屏 IDE 风格聊天界面：频道列表、日志对齐、未读提示、暂停跟随、本地输入（不丢草稿）、可调节字体大小、拖拽排序频道、改进消息布局、点击用户名快速@、双击消息复制、跨平台快捷键、可配置游戏链接高亮、可配置自动图片显示、粘贴图片上传到图床、暂停状态下发送消息自动跳转到底部、修复chat-img格式链接的图片显示问题、Excel模式集成聊天室显示。
+// @description:zh-CN  游戏界面右下角按钮启动。快捷键alt + I (MacOS: cmd + I). 聊天界面右上角可切换为Excel模式，Excel模式中按ESC可以退回到IDE模式。
 // @author       400BadRequest
 // @copyright    2025, 400BadRequest
 // @license      MIT
@@ -572,6 +572,14 @@
       background: rgba(11,14,20,.75);
     }
 
+    /* Excel模式下的状态指示器位置调整 */
+    .hld__excel-div.hld__excel-body #mw-ide-status {
+      position: fixed;
+      top: 120px;
+      right: 20px;
+      z-index: 1000002; /* 确保在Excel界面之上 */
+    }
+
     #mw-ide-newbar{
       position: absolute;
       bottom: 130px; /* 让它浮在输入框上方：你输入时不挡 */
@@ -590,6 +598,13 @@
       cursor: pointer;
       user-select: none;
       font-size: 12px;
+    }
+
+    /* Excel模式下的新消息提示条位置调整 */
+    .hld__excel-div.hld__excel-body #mw-ide-newbar {
+      position: fixed;
+      bottom: 150px;
+      z-index: 1000002; /* 确保在Excel界面之上 */
     }
 
     #mw-ide-newbar:hover{
@@ -2630,6 +2645,11 @@
     // 初始化Excel聊天状态
     excelChatState.activeExcelChannel = state.activeChannel;
     
+    // 确保Excel模式下的滚动状态正确初始化
+    state.atBottom = true;
+    state.isPaused = false;
+    state.activeNewWhilePaused = 0;
+    
     const columnLetters = generateColumnLetters();
     
     // Get the IDE overlay element
@@ -2816,6 +2836,20 @@
     
     // 添加表格交互功能
     addExcelTableInteractions();
+    
+    // 为Excel模式添加新消息提示条点击处理
+    const excelBody = document.querySelector('.hld__excel-div.hld__excel-body');
+    if (excelBody && !excelBody.__mwExcelNewbarBound) {
+      excelBody.__mwExcelNewbarBound = true;
+      excelBody.addEventListener('click', (e) => {
+        const newbar = e.target.closest('#mw-ide-newbar');
+        if (newbar) {
+          e.preventDefault();
+          e.stopPropagation();
+          jumpToBottomAndResumeExcel();
+        }
+      });
+    }
   }
 
   function addExcelTableInteractions() {
@@ -2823,6 +2857,29 @@
     if (!table) return;
     
     let selectedCell = null;
+    
+    // 添加Excel模式的滚动监听器
+    const excelBody = document.querySelector('.hld__excel-div.hld__excel-body');
+    if (excelBody && !excelBody.__mwExcelScrollBound) {
+      excelBody.__mwExcelScrollBound = true;
+      excelBody.addEventListener('scroll', () => {
+        const near = isNearBottom(excelBody, 80);
+        state.atBottom = near;
+
+        if (near) {
+          // 用户回到底部：自动恢复跟随并清掉浮条
+          state.activeNewWhilePaused = 0;
+          showNewBar(false);
+          setPaused(false);
+          clearUnread(state.activeChannel);
+          renderSidebar();
+        } else {
+          // 用户往上翻：进入 paused
+          state.atBottom = false;
+          setPaused(true);
+        }
+      }, { passive: true });
+    }
     
     // 添加单元格点击事件
     table.addEventListener('click', (e) => {
@@ -2971,6 +3028,14 @@
         // fallback: try form submit
         const form = origInput?.closest('form');
         if (form) form.requestSubmit?.();
+      }
+      
+      // 发送消息后，如果用户处于暂停状态，自动跳转到底部并恢复跟随
+      if (state.isPaused) {
+        // 使用 setTimeout 确保消息已经被处理并显示
+        setTimeout(() => {
+          jumpToBottomAndResumeExcel();
+        }, 100);
       }
     }
   }
@@ -3298,6 +3363,12 @@
           timeCell.style.backgroundColor = '#e6f3ff';
           userCell.style.backgroundColor = '#e6f3ff';
           messageCell.style.backgroundColor = '#e6f3ff';
+          
+          // 如果用户不在底部或处于暂停状态，增加未读计数
+          if (!state.atBottom || state.isPaused) {
+            state.activeNewWhilePaused += 1;
+            showNewBar(true, state.activeNewWhilePaused);
+          }
         }
       }
     }
@@ -3310,6 +3381,11 @@
   }
 
   function scrollToLatestMessage() {
+    // 只有在自动滚动开启且用户在底部且未暂停时才滚动
+    if (!CFG.autoScroll || !state.atBottom || state.isPaused) {
+      return;
+    }
+    
     const table = document.querySelector('.hld__excel-table');
     const excelBody = document.querySelector('.hld__excel-div.hld__excel-body');
     if (!table || !excelBody) return;
@@ -3327,9 +3403,26 @@
     if (lastMessageRow > 1) {
       const lastCell = table.querySelector(`td[data-row="${lastMessageRow}"][data-col="A"]`);
       if (lastCell) {
+        // 使用scrollIntoView滚动到底部
         lastCell.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        // 或者直接滚动容器到底部
+        setTimeout(() => {
+          excelBody.scrollTop = excelBody.scrollHeight;
+        }, 100);
       }
     }
+  }
+
+  function jumpToBottomAndResumeExcel() {
+    const excelBody = document.querySelector('.hld__excel-div.hld__excel-body');
+    if (!excelBody) return;
+    
+    excelBody.scrollTop = excelBody.scrollHeight;
+    state.activeNewWhilePaused = 0;
+    showNewBar(false);
+    setPaused(false);
+    clearUnread(state.activeChannel);
+    renderSidebar();
   }
 
   function removeExcelInterface() {
@@ -3360,7 +3453,7 @@
           <button class="btn" data-action="font-size"><span class="btn-text">Font: ${state.fontSize}px</span></button>
           <button class="btn" data-action="toggle-images">Images: ${state.showImages ? 'ON' : 'OFF'}</button>
           <button class="btn" data-action="toggle-gamelinks">Game Links: ${state.showGameLinks ? 'ON' : 'OFF'}</button>
-          <button class="btn" data-action="toggle-scroll">AutoScroll: ON</button>
+          <button class="btn" data-action="toggle-scroll">AutoScroll: ${CFG.autoScroll ? 'ON' : 'OFF'}</button>
           <button class="btn" data-action="excel-mode">Excel: ${state.excelMode ? 'ON' : 'OFF'}</button>
           <button class="btn" data-action="exit">Exit</button>
         </div>

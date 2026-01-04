@@ -902,6 +902,35 @@
       align-items: center;
     }
 
+    .hld__excel-formulabar-coordinate {
+      border-right: 1px solid #e0e2e4;
+      color: #777;
+      text-align: center;
+      width: 50px;
+      font-size: 12px;
+      height: 25px;
+      line-height: 25px;
+      font-weight: 400;
+      flex-shrink: 0;
+    }
+
+    .hld__excel-formulabar-input {
+      flex: 1;
+      border: none;
+      outline: none;
+      padding: 0 8px;
+      font-size: 12px;
+      height: 23px;
+      line-height: 23px;
+      background: transparent;
+      color: #333;
+    }
+
+    .hld__excel-formulabar-input::placeholder {
+      color: #999;
+      font-style: italic;
+    }
+
     .hld__excel-h4 {
       height: 20px;
       background: #f8f9fa;
@@ -1093,6 +1122,37 @@
       border: 1px solid #cccccc;
       border-radius: 4px;
       background: #ffffff;
+      display: flex;
+      align-items: center;
+    }
+
+    .hld__excel-fx-coordinate {
+      width: 50px;
+      text-align: center;
+      font-size: 12px;
+      color: #777;
+      border-right: 1px solid #e0e2e4;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .hld__excel-fx-input {
+      flex: 1;
+      border: none;
+      outline: none;
+      padding: 0 8px;
+      font-size: 12px;
+      background: transparent;
+      color: #333;
+      height: 100%;
+    }
+
+    .hld__excel-fx-input::placeholder {
+      color: #999;
+      font-style: italic;
     }
 
     .hld__excel-f1 {
@@ -2588,7 +2648,8 @@
             <div style="flex-grow: 1;"></div>
           </div>
           <div class="hld__excel-formulabar">
-            <div style="border-right: 1px solid #e0e2e4;color: #777;text-align: center;width: 50px;font-size: 12px;height: 25px;line-height: 25px;font-weight:400;">A1</div>
+            <div class="hld__excel-formulabar-coordinate">A1</div>
+            <input type="text" class="hld__excel-formulabar-input" placeholder="输入消息并按回车发送..." />
           </div>
           <div class="hld__excel-h4">
             <div class="hld__excel-sub"><div></div></div>
@@ -2618,7 +2679,10 @@
           <div class="hld__excel-h3">
             <img class="hld__excel-img-h3-l1" src="${getExcelTheme(state.excelTheme, 'H_L_3')}">
             <img class="hld__excel-img-h3-r1" src="${getExcelTheme(state.excelTheme, 'H_R_3')}">
-            <div class="hld__excel-fx"></div>
+            <div class="hld__excel-fx">
+              <div class="hld__excel-fx-coordinate">A1</div>
+              <input type="text" class="hld__excel-fx-input" placeholder="输入消息并按回车发送..." />
+            </div>
           </div>
           <div class="hld__excel-h4">
             <div class="hld__excel-sub"><div></div></div>
@@ -2652,7 +2716,10 @@
           <div class="hld__excel-h3">
             <img class="hld__excel-img-h3-l1" src="${getExcelTheme(state.excelTheme, 'H_L_3')}">
             <img class="hld__excel-img-h3-r1" src="${getExcelTheme(state.excelTheme, 'H_R_3')}">
-            <div class="hld__excel-fx"></div>
+            <div class="hld__excel-fx">
+              <div class="hld__excel-fx-coordinate">A1</div>
+              <input type="text" class="hld__excel-fx-input" placeholder="输入消息并按回车发送..." />
+            </div>
           </div>
           <div class="hld__excel-h4">
             <div class="hld__excel-sub"><div></div></div>
@@ -2711,9 +2778,18 @@
       // 更新公式栏显示
       const row = cell.dataset.row;
       const col = cell.dataset.col;
-      const formulaBar = document.querySelector('.hld__excel-formulabar div');
-      if (formulaBar) {
-        formulaBar.textContent = `${col}${row}`;
+      
+      // 根据主题选择正确的坐标显示元素
+      let coordinateElement;
+      if (state.excelTheme === 'tencent') {
+        coordinateElement = document.querySelector('.hld__excel-formulabar-coordinate');
+      } else {
+        // office 和 wps 主题使用 hld__excel-fx-coordinate
+        coordinateElement = document.querySelector('.hld__excel-fx-coordinate');
+      }
+      
+      if (coordinateElement) {
+        coordinateElement.textContent = `${col}${row}`;
       }
       
       // 聚焦到单元格
@@ -2775,10 +2851,64 @@
     // 初始化聊天室集成
     initializeChatInExcel();
     
+    // 添加公式栏输入框事件监听
+    setupFormulaBarInput();
+    
     // 默认选中A1单元格
     const firstCell = table.querySelector('td[data-row="1"][data-col="A"]');
     if (firstCell) {
       firstCell.click();
+    }
+  }
+
+  function setupFormulaBarInput() {
+    // 根据主题选择正确的输入框
+    let inputElement;
+    if (state.excelTheme === 'tencent') {
+      inputElement = document.querySelector('.hld__excel-formulabar-input');
+    } else {
+      // office 和 wps 主题使用 hld__excel-fx-input
+      inputElement = document.querySelector('.hld__excel-fx-input');
+    }
+    
+    if (!inputElement) return;
+    
+    // 监听回车键发送消息
+    inputElement.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const message = inputElement.value.trim();
+        if (message) {
+          sendExcelMessage(message);
+          inputElement.value = ''; // 清空输入框
+        }
+      }
+    });
+    
+    // 监听Escape键清空输入框
+    inputElement.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        inputElement.value = '';
+        inputElement.blur(); // 失去焦点
+      }
+    });
+  }
+
+  function sendExcelMessage(message) {
+    // 使用现有的发送消息逻辑
+    const origInput = findOriginalInput();
+    if (origInput) {
+      setOriginalInputValue(origInput, message);
+      
+      const sendBtn = findOriginalSendButton();
+      if (sendBtn) {
+        sendBtn.click();
+      } else {
+        // fallback: try form submit
+        const form = origInput?.closest('form');
+        if (form) form.requestSubmit?.();
+      }
     }
   }
 
